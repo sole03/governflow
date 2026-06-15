@@ -1,7 +1,7 @@
 {
-  "name": "agent-tuning-reverse-graph",
-  "version": "0.1.0",
-  "description": "MCP Server for Agent Training Reverse Graph System",
+  "name": "mcp-rule-engine",
+  "version": "1.0.0",
+  "description": "MCP Server for Cognition Engine and Trust Governance Layer",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -15,7 +15,7 @@
     "test:e2e": "node tests/e2e-fix-verify.mjs"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^0.6.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@prisma/client": "^5.22.0",
     "better-sqlite3": "^12.10.1",
     "tree-sitter": "^0.21.1",
@@ -30,6 +30,15 @@
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
-  }
+  },
+  "author": "MCP Rule Engine Contributors",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sole03/mcp-rule-engine.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sole03/mcp-rule-engine/issues"
+  },
+  "homepage": "https://github.com/sole03/mcp-rule-engine#readme"
 }
-

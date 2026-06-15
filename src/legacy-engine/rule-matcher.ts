@@ -1,3 +1,9 @@
+/**
+ * @deprecated LEGACY ENGINE MODULE — Preserved for reference only.
+ * Do NOT modify. The new cognition-engine module replaces this entire subsystem.
+ * See src/cognition-engine/ for the replacement.
+ */
+
 import { Rule, ScoredRule, MatchContext, MatchResult, DEFAULT_WEIGHTS, SCOPE_PRIORITIES } from "../types.js";
 import { truncateRules } from "./token-controller.js";
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { matchRules, computeScore } from "../../src/engine/rule-matcher.js";
+import { matchRules, computeScore } from "../../src/legacy-engine/rule-matcher.js";
 import { Rule, MatchContext } from "../../src/types.js";
 
 function makeRule(overrides: Partial<Rule> = {}): Rule {
@@ -37,3 +37,4 @@ describe("Rule Matcher", () => {
     expect(result.rules[0].matchReasons.length).toBeGreaterThan(0);
   });
 });
+

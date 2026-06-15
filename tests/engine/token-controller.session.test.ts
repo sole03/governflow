@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { truncateRules, getSessionTokens, clearSession } from "../../src/engine/token-controller.js";
+import { truncateRules, getSessionTokens, clearSession } from "../../src/legacy-engine/token-controller.js";
 import { Rule } from "../../src/types.js";
 
 function makeRule(id: string, patternLen = 20): Rule {
@@ -63,3 +63,4 @@ describe("Token Controller — Session Tracking", () => {
     expect(getSessionTokens("test-task")).toBe(0);
   });
 });
+

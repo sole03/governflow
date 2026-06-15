@@ -84,3 +84,62 @@ model RuleVersion {
 
   rule       Rule     @relation(fields: [ruleId], references: [id])
 }
+
+// ── Cognition Graph (Phase 2+) ─────────────────────────────
+// Independent from legacy Rule engine. Do NOT modify existing models.
+
+/// Cognitive node: represents an intent, constraint, heuristic, or pattern
+/// in the cognition graph. Payload stores structured data only (AST JSON, DSL),
+/// NEVER natural language. Uses String for JSON fields (SQLite limitation).
+model CognitionNode {
+  id               String          @id @default(cuid())
+  type             String          // INTENT | CONSTRAINT | HEURISTIC | PATTERN
+  semanticHash     String          @unique
+  abstractionLevel Int             @default(0)
+  payload          String          // JSON — structured AST templates / constraint expressions
+  metadata         String?         // JSON — optional metadata (source diffId, etc.)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  outgoingEdges    CognitionEdge[] @relation("edgeSource")
+  incomingEdges    CognitionEdge[] @relation("edgeTarget")
+  astTemplate      AstTemplate?
+
+  @@index([abstractionLevel])
+  @@index([type])
+}
+
+/// Semantic edge connecting two cognition nodes.
+/// Each (sourceId, targetId, relation) triple is unique.
+/// relation values: CAUSES | PRECEDES | MUTEX | GENERALIZES | REFINES
+model CognitionEdge {
+  id        String         @id @default(cuid())
+  sourceId  String
+  targetId  String
+  relation  String         // CAUSES | PRECEDES | MUTEX | GENERALIZES | REFINES
+  weight    Float          @default(1.0)
+  metadata  String?        // JSON — optional edge metadata
+  createdAt DateTime       @default(now())
+
+  source    CognitionNode  @relation("edgeSource", fields: [sourceId], references: [id], onDelete: Cascade)
+  target    CognitionNode  @relation("edgeTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, targetId, relation])
+  @@index([sourceId])
+  @@index([targetId])
+  @@index([relation])
+}
+
+/// Executable AST template linked to a cognition node.
+/// Stores DSL/JSON patterns for AST-level validation or transformation.
+/// NEVER stores natural language suggestions.
+model AstTemplate {
+  id               String         @id @default(cuid())
+  nodeId           String         @unique
+  language         String
+  templateDsl      String
+  validationSchema String?        // JSON — schema for validating templateDsl
+  createdAt        DateTime       @default(now())
+
+  node             CognitionNode  @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+}

@@ -1,7 +1,7 @@
 import { RuleRepo } from "../storage/rule-repo.js";
 import { DiffLogRepo } from "../storage/diff-log-repo.js";
 import { MetricRepo } from "../storage/metric-repo.js";
-import { computeDiffWithFallback } from "../engine/parsers.js";
+import { computeDiffWithFallback } from "../legacy-engine/parsers.js";
 import { processSilent } from "../modes/silent.js";
 import { buildConfirmCard } from "../modes/confirm.js";
 import { CaptureDiffInput, RULE_GENERATION_THRESHOLDS } from "../types.js";

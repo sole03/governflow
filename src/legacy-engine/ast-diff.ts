@@ -1,3 +1,9 @@
+/**
+ * @deprecated LEGACY ENGINE MODULE — Preserved for reference only.
+ * Do NOT modify. The new cognition-engine module replaces this entire subsystem.
+ * See src/cognition-engine/ for the replacement.
+ */
+
 import { ASTNode, AtomicOp, DiffResult, NodeSignature } from "../types.js";
 import { buildSignatureMap } from "./ast-node.js";
 

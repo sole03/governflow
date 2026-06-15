@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { evaluateRuleCandidate } from "../../src/engine/rule-generator.js";
+import { evaluateRuleCandidate } from "../../src/legacy-engine/rule-generator.js";
 import { AtomicOp } from "../../src/types.js";
 
 describe("Rule Generator", () => {
@@ -51,3 +51,4 @@ describe("Rule Generator", () => {
     expect(result.ruleCandidate?.confidence).toBe("low");
   });
 });
+

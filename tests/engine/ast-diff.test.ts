@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeDiff } from "../../src/engine/ast-diff.js";
+import { computeDiff } from "../../src/legacy-engine/ast-diff.js";
 import { ASTNode } from "../../src/types.js";
 
 describe("AST Diff Engine", () => {
@@ -108,3 +108,4 @@ describe("AST Diff Engine", () => {
     expect(inserts.length).toBeGreaterThanOrEqual(0); // added (was matched as MOVE)
   });
 });
+

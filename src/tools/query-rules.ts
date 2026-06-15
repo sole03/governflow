@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from "fs";
 import { RuleRepo } from "../storage/rule-repo.js";
 import { MetricRepo } from "../storage/metric-repo.js";
-import { matchRules } from "../engine/rule-matcher.js";
-import { truncateRules } from "../engine/token-controller.js";
+import { matchRules } from "../legacy-engine/rule-matcher.js";
+import { truncateRules } from "../legacy-engine/token-controller.js";
 import { QueryRulesInput, MatchContext, TOKEN_LIMITS } from "../types.js";
 
 /** Generate a <rules_enforcement> block for system prompt injection (P2 risk mitigation). */

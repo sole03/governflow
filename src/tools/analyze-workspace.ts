@@ -3,8 +3,8 @@ import { readFileSync, existsSync } from "node:fs";
 import { RuleRepo } from "../storage/rule-repo.js";
 import { DiffLogRepo } from "../storage/diff-log-repo.js";
 import { MetricRepo } from "../storage/metric-repo.js";
-import { computeDiffWithFallback } from "../engine/parsers.js";
-import { evaluateRuleCandidate } from "../engine/rule-generator.js";
+import { computeDiffWithFallback } from "../legacy-engine/parsers.js";
+import { evaluateRuleCandidate } from "../legacy-engine/rule-generator.js";
 import { detectConflict } from "../conflict/arbitrator.js";
 import {
   AnalyzeWorkspaceInput, AnalyzeResult, Rule, RuleSpec, RuleConfidence,

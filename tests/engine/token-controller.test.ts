@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { estimateTokens, truncateRules } from "../../src/engine/token-controller.js";
+import { estimateTokens, truncateRules } from "../../src/legacy-engine/token-controller.js";
 import { Rule } from "../../src/types.js";
 
 function makeRule(overrides: Partial<Rule> = {}): Rule {
@@ -31,3 +31,4 @@ describe("Token Controller", () => {
     expect(result.totalTokens).toBe(0);
   });
 });
+

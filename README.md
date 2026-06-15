@@ -1,201 +1,204 @@
-﻿# MCP Rule Engine
+# MCP Rule Engine — Cognition Engine & Trust Governance Layer
 
-> [中文文档](./README.zh.md)
+> A production-grade MCP server that combines a cognition graph engine with a trusted governance layer. Provides intelligent code pattern matching, AST-level constraint validation, and auditable injection approval for AI agents.
 
-An MCP server that captures code modifications, generates reusable rules, and injects them into AI agent context. Provides audit trail for every rule change.
+## Core Features
 
-## Features
+- **Cognition Graph Engine** — Intent recognition, weighted graph traversal, and AST constraint solving for intelligent code analysis
+- **Trust Governance** — Three-tier knowledge base with injection approval workflow, TTL-based proposals, and audit logging
+- **Dual Transport** — Stdio (local) and Streamable HTTP (remote) transports with full MCP lifecycle support
+- **Agent Hard Constraints** — Output schema enforcement with `validationRequired` auto-validation; non-compliant agent responses intercepted
+- **Hot Config Updates** — Dynamic threshold tuning with expert mode authorization and version chain tracking
 
-- **Rule capture**: Analyze code diffs via AST (Tree-sitter) and extract repeatable patterns as structured rules
-- **Deterministic matching**: Language + file extension + tags + project ID retrieval, with weighted scoring (type/time decay/path match)
-- **Version audit**: Every rule edit auto-creates a snapshot in RuleVersion table — query full history with getRuleVersions
-- **Batch workspace analysis**: nalyze_workspace tool diffs a git range or accepts ileContents directly (no git required)
-- **Session-level token budget**: 	askId-scoped <=2000 token tracking across multi-round query_rules calls
-- **Conflict resolution**: Automatic detection and user-guided resolution when rules conflict over the same pattern
-- **OpenAPI 3.1 schema**: Auto-generated API schema at docs/openapi.json for non-TypeScript clients
+---
 
-## API
+## Architecture
 
-### analyze_workspace
+```mermaid
+flowchart LR
+    Agent["AI Agent (Cursor / Claude / Cline)"]
+    MCP["MCP Server (stdio / HTTP)"]
+    CV["Constraint Validator"]
+    GT["Graph Traverser"]
+    IA["Injection Approval"]
+    FL["Feedback Loop"]
+    DB[("SQLite / Prisma")]
 
-Analyze workspace changes and generate rule candidates. Accepts either a git commit range or direct file contents.
+    Agent -->|tools/list → tools/call| MCP
+    MCP -->|cognition_validate| CV
+    MCP -->|cognition_query| GT
+    MCP -->|cognition_approve_injection| IA
+    MCP -->|cognition_feedback| FL
+    CV -->|parse + validate| GT
+    GT -->|weighted BFS| DB
+    IA -->|TTL proposal| DB
+    FL -->|update weights| DB
+    DB -->|graph data| GT
+```
 
-**Inputs:**
-- aseCommit (string, required): Git base commit to diff against
-- headCommit (string, optional): Git head commit (defaults to HEAD)
-- paths (string[], optional): Filter to specific file paths
-- ileContents (object[], optional): Direct content analysis — bypasses git
-  - path (string): File path
-  - originalContent (string, optional): Original content (omit if new file)
-  - modifiedContent (string): Modified content
-- 	askId (string, optional): Session tracking ID for token budget isolation
-- concurrency (number, optional): Parallel processing concurrency (default: 5)
+---
 
-### query_rules
+## Quick Start
 
-Query the most relevant rules for a given context.
+### Prerequisites
 
-**Inputs:**
-- language (string, required): Programming language
-- ilePath (string, required): Current file path
-- projectId (string, optional): Project scope filter
-- 	ags (string[], optional): Tag-based filtering
-- 	askId (string, optional): Session tracking ID
+- Node.js >= 18
+- npm >= 9
 
-Returns Top-K scored rules (<=2000 tokens total), with match reasons (language_match, path_match, content_match).
+### Setup
 
-### capture_diff
+```bash
+git clone <repo-url> && cd mcp-rule-engine
+npm install
+npx prisma db push
+npm run build
+```
 
-Analyze a single file diff and generate rule candidates.
+### Start Server
 
-**Inputs:**
-- ilePath (string, required)
-- originalContent (string, required)
-- modifiedContent (string, required)
-- language (string, required)
-- projectId (string, optional)
+```bash
+# Stdio mode (default)
+node dist/index.js
 
-### confirm_rule
+# HTTP mode
+TRANSPORT=http PORT=3000 node dist/index.js
+```
 
-Confirm, reject, edit, or skip a rule candidate.
+---
 
-**Inputs:**
-- uleId (string, required)
-- ction (enum: ccept | eject | dit | skip, required)
-- ditedPattern (string, optional): New pattern when action=edit
-- ditedSuggestion (string, optional): New suggestion when action=edit
-
-On dit, the server automatically snapshots the old content into RuleVersion before applying the update.
-
-### resolve_conflict
-
-Resolve a conflict between two rules covering the same pattern.
-
-**Inputs:**
-- conflictId (string, required)
-- esolution (enum: keep_a | keep_b | merge | skip, required)
-- atchAllSession (boolean, optional): Apply same resolution to all conflicts this session
-
-### list_rules
-
-List rules with optional filters.
-
-**Inputs:** All optional — language, scope (project|user|global), status (active|pending|archived), projectId, limit, offset.
-
-### getRuleVersions (internal)
-
-Query rule version history.
-
-**Inputs:**
-- uleId (string, required)
-
-Returns array of version snapshots, newest first.
-
-## Configuration
-
-### Codex CLI
-
-`ash
-codex mcp add mcp-rule-engine -- node /path/to/project/dist/index.js
-`
-
-Or add to ~/.codex/config.toml:
-
-`	oml
-[mcp_servers."mcp-rule-engine"]
-command = "node"
-args = ["/path/to/project/dist/index.js"]
-[mcp_servers."mcp-rule-engine".env]
-DATABASE_URL = "file:/path/to/project/prisma/data/rules.db"
-`
-
-### VS Code
-
-`json
-{
-  "servers": {
-    "mcp-rule-engine": {
-      "command": "node",
-      "args": ["/path/to/project/dist/index.js"]
-    }
-  }
-}
-`
+## MCP Integration
 
 ### Cursor
 
-`json
+Add to `.cursor/mcp.json`:
+
+```json
 {
   "mcpServers": {
-    "mcp-rule-engine": {
+    "cognition-engine": {
       "command": "node",
-      "args": ["/path/to/project/dist/index.js"],
-      "env": {
-        "DATABASE_URL": "file:/path/to/project/prisma/data/rules.db"
-      }
+      "args": ["dist/index.js"],
+      "env": { "DATABASE_URL": "file:./dev.db" }
     }
   }
 }
-`
+```
 
-### Windows
+### Claude Desktop
 
-When using 
-ode directly (as with this server), no cmd /c wrapping is needed. Ensure DATABASE_URL is an absolute path:
+Add to `claude_desktop_config.json`:
 
-`
-DATABASE_URL="file:C:/path/to/project/prisma/data/rules.db"
-`
+```json
+{
+  "mcpServers": {
+    "cognition-engine": {
+      "command": "node",
+      "args": ["path/to/mcp-rule-engine/dist/index.js"],
+      "env": { "DATABASE_URL": "file:./dev.db" }
+    }
+  }
+}
+```
 
-## Build
+### Cline / Roo Code (HTTP)
 
-`ash
-npm install
-npx prisma generate
-npx prisma db push          # Initialize SQLite database
-npm run build                # Compile TypeScript
-node dist/index.js           # Start server (stdio transport)
-`
+```json
+{
+  "mcpServers": {
+    "cognition-engine": {
+      "url": "http://localhost:3000",
+      "transport": "streamable-http"
+    }
+  }
+}
+```
 
-### Tests
+---
 
-`ash
-npm test                        # Unit tests
-npm run test:e2e                # E2E integration test
-npm run test:e2e -- --db :memory:  # In-memory database mode
-`
+## Trust Governance Protocol
 
-## Project Structure
+### Three-Tier Knowledge
 
-`
-src/
-  index.ts              # MCP server entry point
-  types.ts              # Shared type definitions
-  openapi.ts            # OpenAPI 3.1 schema generator
-  engine/               # Core logic: AST diff, rule generation, matching
-  storage/              # Persistence layer: Prisma + SQLite
-  tools/                # MCP tool handlers
-  conflict/             # Conflict resolution logic
-  modes/                # Silent & confirm interaction modes
-tests/
-  e2e-fix-verify.mjs   # E2E integration test
-  engine/               # Engine unit tests
-  storage/              # Storage unit tests
-  tools/                # Tool unit tests
-  conflict/             # Conflict arbitrator tests
-prisma/
-  schema.prisma         # Database schema
-docs/
-  api/README.md         # API reference documentation
-  openapi.json          # OpenAPI 3.1 schema
-`
+| Tier | Scope | Node Type | Validation |
+|------|-------|-----------|------------|
+| Global | Universal patterns | NegativeConstraint = REJECT | Hard block |
+| Project | Project conventions | PositiveConstraint = WARN | Soft warning |
+| Reuse | Cross-project patterns | Intent + Heuristic | Weight-based |
 
-## Known Issues
+### Injection Approval Flow
 
-- **Prisma EPERM on Windows**: Windows Defender may block schema-engine-windows.exe. Run: Add-MpPreference -ExclusionPath "...\\@prisma\\engines\\schema-engine-windows.exe"
-- **Codex --db :memory: EPERM**: Sandboxed environments can't spawn cmd.exe. Use a file path instead.
-- **Codex state DB corruption**: Abnormal exit may corrupt state_*.sqlite. Backup and remove to auto-rebuild.
+```
+Agent → cognition_query (implicit Proposal + TTL=5min)
+  → User reviews results
+  → cognition_approve_injection(proposalId, APPROVE|REJECT|OVERRIDE)
+  → Audit log recorded
+```
+
+Proposals are in-memory with a 5-minute TTL. Concurrent proposals for the same context hash return the existing proposal to prevent conflicts. Expired proposals return `-32602 Proposal Expired` with `retryable: true`.
+
+### Constraint Validation Dual-Mode
+
+- **REJECT (Hard Block)**: Returned as `-32602` + `ruleId`. Agent must stop.
+- **WARN (Soft Warning)**: Returned as violation. Agent may continue with user confirmation.
+
+### Config Hot Update
+
+Dynamic thresholds (similarity 0.7/0.9) are stored as `CognitionNode(type=HEURISTIC)`. Each update creates a new version node with the old node marked `supersededBy`. Requires `expertMode: true`.
+
+### Audit & Compliance
+
+All injection decisions, config changes, and validation events are recorded via `MetricEvent` with async non-blocking writes. On database write failure, events fall back to `logs/fallback.log`.
+
+---
+
+## MCP Resources
+
+| URI | Type | Content |
+|-----|------|---------|
+| `cognition://schema` | application/json | Cognition graph data model |
+| `cognition://stats` | application/json | Node/edge counts + approvalRate7d |
+| `cognition://docs` | text/markdown | Full tool documentation |
+| `cognition://rules-changelog` | application/json | Versioned rule change log |
+
+---
+
+## MCP Tools
+
+| Tool | Description | readOnlyHint |
+|------|-------------|:---:|
+| `cognition_query` | Query graph by context hash | ✅ |
+| `cognition_validate` | Validate code against AST templates | ✅ |
+| `cognition_feedback` | Provide feedback to refine traversal | ❌ |
+| `cognition_approve_injection` | Approve/reject proposals with TTL | ❌ |
+| `cognition_update_config` | Hot-update thresholds (expert mode) | ❌ |
+
+---
+
+## Testing
+
+```bash
+# Run all tests (118/118 passing)
+npm test
+
+# Run specific suite
+npx vitest run tests/protocol/
+```
+
+---
+
+## Protocol Compliance
+
+This server conforms to **MCP Specification v1.29.0** and supports:
+
+- [x] initialize / initialized / ping / shutdown lifecycle
+- [x] tools/list + tools/call with JSON Schema input/output
+- [x] resources/list + resources/read with `cognition://` URI scheme
+- [x] StdioServerTransport and StreamableHTTPServerTransport
+- [x] Error codes: -32602 (invalid params), -32603 (internal), -32001 (timeout)
+- [x] Annotations: readOnlyHint, destructiveHint, openWorldHint
+
+---
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).

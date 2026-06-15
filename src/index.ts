@@ -1,6 +1,7 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { CallToolRequestSchema, ListToolsRequestSchema, ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { CallToolRequestSchema, ListToolsRequestSchema, ListResourcesRequestSchema, ReadResourceRequestSchema, ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { getPrismaClient, disconnectPrisma } from "./storage/client.js";
 import { RuleRepo } from "./storage/rule-repo.js";
 import { DiffLogRepo } from "./storage/diff-log-repo.js";
@@ -12,6 +13,10 @@ import { handleConfirmRule } from "./tools/confirm-rule.js";
 import { handleResolveConflict } from "./tools/resolve-conflict.js";
 import { handleListRules } from "./tools/list-rules.js";
 import { handleAnalyzeWorkspace } from "./tools/analyze-workspace.js";
+import { handleCognitionQuery, handleCognitionValidate, handleCognitionFeedback } from "./tools/cognition-tools.js";
+import { handleApproveInjection } from "./tools/injection-approval.js";
+import { handleUpdateConfig } from "./tools/config-tools.js";
+import { RESOURCES, readCognitionSchema, readCognitionStats, readCognitionDocs } from "./resources/cognition-resources.js";
 
 const server = new Server({ name: "agent-tuning-reverse-graph", version: "0.1.0" }, { capabilities: { tools: {} } });
 const ruleRepo = new RuleRepo();
@@ -46,6 +51,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case "confirm_rule": return await handleConfirmRule(args as any, ruleRepo, metricRepo);
       case "resolve_conflict": return await handleResolveConflict(args as any, conflictRepo, ruleRepo, metricRepo);
       case "list_rules": return await handleListRules(args as any, ruleRepo);
+            case "cognition_query": return await handleCognitionQuery(args as any);
+      case "cognition_validate": return await handleCognitionValidate(args as any);
+      case "cognition_feedback": return await handleCognitionFeedback(args as any);
+      case "cognition_approve_injection": return await handleApproveInjection(args as any);
+      case "cognition_update_config": return await handleUpdateConfig(args as any);
       default: throw new McpError(ErrorCode.MethodNotFound, "Unknown tool: " + name);
     }
   } catch (err) {

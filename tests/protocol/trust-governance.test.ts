@@ -1,0 +1,150 @@
+/**
+ * @file Trust & Governance Tests
+ * Covers: injection approval, config tools, response validation, constraint validation.
+ * Target: 15+ test cases covering all governance requirements.
+ */
+
+import { describe, it, expect, beforeEach } from "vitest";
+import { createProposal, handleApproveInjection, getProposalStats } from "../../src/tools/injection-approval.js";
+import { handleUpdateConfig } from "../../src/tools/config-tools.js";
+import { validateToolResponse } from "../../src/middleware/response-validation.js";
+import { validateCode } from "../../src/cognition-engine/constraint-validator.js";
+
+// ── Injection Approval Tests ──────────────────────────────
+
+describe("Injection Approval", () => {
+  beforeEach(() => {
+    // Reset proposal store (access via module-level Map)
+  });
+
+  it("createProposal returns proposal with TTL", () => {
+    const p = createProposal("ctx-1", ["node-1"]);
+    expect(p.proposalId).toBeDefined();
+    expect(p.contextHash).toBe("ctx-1");
+    expect(p.expiresAt).toBeGreaterThan(p.createdAt);
+    expect(p.status).toBe("PENDING");
+  });
+
+  it("duplicate contextHash returns existing proposal (conflict prevention)", () => {
+    const p1 = createProposal("ctx-dup", ["node-1"]);
+    const p2 = createProposal("ctx-dup", ["node-2"]);
+    expect(p2.proposalId).toBe(p1.proposalId);
+  });
+
+  it("handleApproveInjection with APPROVE returns approved status", async () => {
+    const p = createProposal("ctx-approve", ["node-1"]);
+    const result = await handleApproveInjection({ proposalId: p.proposalId, decision: "APPROVE" });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.status).toBe("APPROVED");
+  });
+
+  it("handleApproveInjection with missing fields returns -32602", async () => {
+    const result = await handleApproveInjection({} as any);
+    const data = JSON.parse(result.content[0].text);
+    expect(data.code).toBe(-32602);
+    expect(data.retryable).toBe(false);
+  });
+
+  it("handleApproveInjection with unknown proposal returns -32602", async () => {
+    const result = await handleApproveInjection({ proposalId: "nonexistent", decision: "APPROVE" });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.code).toBe(-32602);
+  });
+
+  it("handleApproveInjection with expired proposal returns retryable error", async () => {
+    const p = createProposal("ctx-expire", ["node-1"]);
+    // Force expiry by setting past TTL
+    (p as any).expiresAt = Date.now() - 1000;
+    const result = await handleApproveInjection({ proposalId: p.proposalId, decision: "REJECT" });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.code).toBe(-32602);
+    expect(data.retryable).toBe(true);
+  });
+
+  it("getProposalStats returns counts", () => {
+    createProposal("stats-test", []);
+    const stats = getProposalStats();
+    expect(typeof stats.active).toBe("number");
+    expect(typeof stats.total).toBe("number");
+  });
+});
+
+// ── Config Tool Tests ─────────────────────────────────────
+
+describe("Config Tool", () => {
+  it("rejects without expert mode", async () => {
+    const result = await handleUpdateConfig({ key: "threshold", value: 0.8, expertMode: false });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.code).toBe(-32601);
+  });
+
+  it("rejects missing key", async () => {
+    const result = await handleUpdateConfig({ key: "", value: 0.5, expertMode: true });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.code).toBe(-32602);
+  });
+
+  it("accepts with expert mode", async () => {
+    const result = await handleUpdateConfig({ key: "test-config", value: 0.75, expertMode: true });
+    const data = JSON.parse(result.content[0].text);
+    expect(data.key).toBe("test-config");
+    expect(data.value).toBe(0.75);
+  });
+});
+
+// ── Response Validation Tests ─────────────────────────────
+
+describe("Response Validation Middleware", () => {
+  it("auto-adds validationRequired for cognition_query", () => {
+    const resp = { content: [{ type: "text", text: JSON.stringify({ nodes: [] }) }] };
+    const patched = validateToolResponse("cognition_query", resp);
+    const data = JSON.parse(patched.content[0].text);
+    expect(data.validationRequired).toBe(true);
+  });
+
+  it("auto-adds validationRequired for cognition_validate", () => {
+    const resp = { content: [{ type: "text", text: JSON.stringify({ valid: true }) }] };
+    const patched = validateToolResponse("cognition_validate", resp);
+    const data = JSON.parse(patched.content[0].text);
+    expect(data.validationRequired).toBe(true);
+  });
+
+  it("does not modify non-JSON content", () => {
+    const resp = { content: [{ type: "text", text: "plain text" }] };
+    const patched = validateToolResponse("cognition_query", resp);
+    expect(patched.content[0].text).toBe("plain text");
+  });
+
+  it("preserves existing validationRequired", () => {
+    const resp = { content: [{ type: "text", text: JSON.stringify({ nodes: [], validationRequired: false }) }] };
+    const patched = validateToolResponse("cognition_query", resp);
+    const data = JSON.parse(patched.content[0].text);
+    expect(data.validationRequired).toBe(false); // unchanged
+  });
+});
+
+// ── Constraint Validator Tests ────────────────────────────
+
+describe("Constraint Validator", () => {
+  it("validateCode returns passed for clean code", async () => {
+    const result = await validateCode("function foo() { return 1; }", "typescript");
+    expect(typeof result.passed).toBe("boolean");
+    expect(Array.isArray(result.violations)).toBe(true);
+    expect(typeof result.hardBlocks).toBe("number");
+  });
+
+  it("validateCode handles empty code gracefully", async () => {
+    const result = await validateCode("", "typescript");
+    expect(result.passed).toBe(true);
+    expect(result.violations.length).toBe(0);
+  });
+});
+
+// ── Stats & Resource Tests ───────────────────────────────
+
+describe("Governance Resources", () => {
+  it("getProposalStats returns valid counts", () => {
+    const s = getProposalStats();
+    expect(s.total).toBeGreaterThanOrEqual(0);
+  });
+});

@@ -1,3 +1,9 @@
+/**
+ * @deprecated LEGACY ENGINE MODULE — Preserved for reference only.
+ * Do NOT modify. The new cognition-engine module replaces this entire subsystem.
+ * See src/cognition-engine/ for the replacement.
+ */
+
 import { AtomicOp, RuleConfidence, RuleSpec, RULE_GENERATION_THRESHOLDS } from "../types.js";
 
 export interface RuleCandidateEval {

@@ -1,5 +1,5 @@
 import { AtomicOp, RuleSpec } from "../types.js";
-import { evaluateRuleCandidate } from "../engine/rule-generator.js";
+import { evaluateRuleCandidate } from "../legacy-engine/rule-generator.js";
 import { MetricRepo } from "../storage/metric-repo.js";
 
 export type ConfirmAction = "accept" | "reject" | "edit" | "skip";
