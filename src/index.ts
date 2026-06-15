@@ -11,6 +11,7 @@ import { handleQueryRules } from "./tools/query-rules.js";
 import { handleConfirmRule } from "./tools/confirm-rule.js";
 import { handleResolveConflict } from "./tools/resolve-conflict.js";
 import { handleListRules } from "./tools/list-rules.js";
+import { handleAnalyzeWorkspace } from "./tools/analyze-workspace.js";
 
 const server = new Server({ name: "agent-tuning-reverse-graph", version: "0.1.0" }, { capabilities: { tools: {} } });
 const ruleRepo = new RuleRepo();
@@ -26,6 +27,7 @@ async function getMode(): Promise<"silent" | "confirm"> {
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
+    { name: "analyze_workspace", description: "批量分析工作区变更并生成规则候选", inputSchema: { type: "object", properties: { baseCommit: { type: "string" }, headCommit: { type: "string" }, paths: { type: "array", items: { type: "string" } }, taskId: { type: "string" } }, required: ["baseCommit"] } },
     { name: "capture_diff", description: "分析代码差异并生成规则候选", inputSchema: { type: "object", properties: { filePath: { type: "string" }, originalContent: { type: "string" }, modifiedContent: { type: "string" }, language: { type: "string" }, projectId: { type: "string" } }, required: ["filePath", "originalContent", "modifiedContent", "language"] } },
     { name: "query_rules", description: "查询与当前上下文最相关的规则", inputSchema: { type: "object", properties: { language: { type: "string" }, filePath: { type: "string" }, projectId: { type: "string" }, tags: { type: "array", items: { type: "string" } } }, required: ["language", "filePath"] } },
     { name: "confirm_rule", description: "确认/拒绝/编辑/跳过规则候选", inputSchema: { type: "object", properties: { ruleId: { type: "string" }, action: { type: "string", enum: ["accept", "reject", "edit", "skip"] }, editedPattern: { type: "string" }, editedSuggestion: { type: "string" } }, required: ["ruleId", "action"] } },
@@ -38,6 +40,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
   try {
     switch (name) {
+      case "analyze_workspace": return await handleAnalyzeWorkspace(args as any, ruleRepo, diffLogRepo, metricRepo);
       case "capture_diff": return await handleCaptureDiff(args as any, ruleRepo, diffLogRepo, metricRepo, await getMode());
       case "query_rules": return await handleQueryRules(args as any, ruleRepo, metricRepo);
       case "confirm_rule": return await handleConfirmRule(args as any, ruleRepo, metricRepo);

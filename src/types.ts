@@ -113,6 +113,7 @@ export interface QueryRulesInput {
   filePath: string;
   projectId?: string;
   tags?: string[];
+  taskId?: string;
 }
 
 export interface ConfirmRuleInput {
@@ -162,3 +163,31 @@ export const RULE_GENERATION_THRESHOLDS = {
   minRepeatsInDays: 5,
   repeatWindowDays: 7,
 } as const;
+ 
+ export interface AnalyzeWorkspaceInput {
+   baseCommit: string;
+   headCommit?: string;
+   paths?: string[];
+   taskId?: string;
+ }
+ 
+ export interface AnalyzeResult {
+   analyzedFiles: number;
+   skippedFiles: number;
+   generatedRules: { rule: RuleSpec; filePath: string }[];
+   conflicts: { ruleA: RuleSpec; ruleB: RuleSpec; reason: string }[];
+   errors: { filePath: string; error: string }[];
+ }
+ 
+ /** File extensions to skip in workspace analysis */
+ export const SKIP_PATTERNS = [
+   /node_modules\//,
+   /\.next\//,
+   /dist\//,
+   /\.git\//,
+   /\.cache\//,
+   /\.turbo\//,
+   /build\//,
+   /coverage\//,
+   /\.(map|d\.ts)$/,
+ ];

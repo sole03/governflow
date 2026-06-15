@@ -45,6 +45,28 @@ export class RuleRepo {
     });
     return toRule(r);
   }
+ 
+  /** Batch create rules inside a single transaction to prevent duplicates under WAL mode. */
+  async batchCreate(specs: (RuleSpec & { projectId?: string })[]): Promise<Rule[]> {
+    const prisma = getPrismaClient();
+    return prisma.$transaction(
+      specs.map(spec => prisma.rule.create({
+        data: {
+          projectId: spec.projectId ?? null,
+          scope: spec.scope ?? "project",
+          type: spec.type,
+          pattern: spec.pattern,
+          suggestion: spec.suggestion,
+          language: spec.language,
+          fileExtensions: spec.fileExtensions?.join(",") ?? null,
+          tags: spec.tags?.join(",") ?? null,
+          category: spec.category ?? null,
+          confidence: spec.confidence ?? "medium",
+          source: spec.source ?? "auto",
+        },
+      })),
+    ).then(rows => rows.map(toRule));
+  }
 
   async findById(id: string): Promise<Rule | null> {
     const prisma = getPrismaClient();
