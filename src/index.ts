@@ -57,7 +57,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 async function main() {
   const prisma = getPrismaClient();
   // Initialize the SQLite database and push schema
-  await prisma.$executeRawUnsafe("SELECT 1");
+  await prisma.$connect();
   await prisma.appConfig.upsert({ where: { id: "default" }, update: {}, create: { id: "default", mode: "silent" } });
   const transport = new StdioServerTransport();
   server.onerror = (err) => console.error("[MCP Error]", err);
