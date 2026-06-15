@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "license:check": "node scripts/check-license.js",
-    "license:fix": "node scripts/check-license.js"
+    "license:fix": "node scripts/check-license.js",
+    "bench": "npx tsx benchmarks/intent-recognizer.bench.ts && npx tsx benchmarks/graph-traverser.bench.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

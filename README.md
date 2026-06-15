@@ -8,7 +8,13 @@
 
 > A production-grade MCP server that combines a cognition graph engine with a trusted governance layer. Provides intelligent code pattern matching, AST-level constraint validation, and auditable injection approval for AI agents.
 
+<!-- TEMP_BANNER_REMOVE_AFTER_2W -->
+> **📢 Protocol Update:** We have adopted Apache 2.0 licensing with a formal trademark policy. [Read the announcement →](DISCUSSION_ANNOUNCEMENT.md)
+<!-- /TEMP_BANNER -->
+
 ---
+
+
 
 ## The Problem It Solves
 

@@ -10,6 +10,23 @@ Thanks for your interest in contributing! This document outlines the guidelines 
 4. **Test** — Ensure all tests pass (`npm test`). Add tests for new functionality.
 5. **Submit a PR** — Keep PRs focused on a single concern. Link the related issue.
 
+
+## Your First Contribution
+
+Looking for a good place to start? Check out our [Good First Issues](https://github.com/sole03/mcp-rule-engine/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) — tagged issues that are well-scoped and include guidance on where to start.
+
+### PR Checklist
+
+Before submitting a pull request, verify all of the following:
+
+- [ ] `npm run license:check` — all files have Apache 2.0 headers
+- [ ] `npm test` — all 126+ tests pass
+- [ ] `npx tsc --noEmit` — TypeScript compilation succeeds
+- [ ] JSDoc added for any new public API
+- [ ] Test added for any new functionality
+
+Missing any of these? The CI pipeline will catch it, but running locally first saves time.
+
 ## Development Setup
 
 ```bash
