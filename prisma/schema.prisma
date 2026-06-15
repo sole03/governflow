@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Rule {
+  id              String   @id @default(uuid())
+  projectId       String?
+  scope           String   @default("project")
+  priority        Float    @default(1.0)
+  type            String
+  pattern         String
+  suggestion      String
+  language        String   @default("typescript")
+  fileExtensions  String?
+  tags            String?
+  confidence      String   @default("medium")
+  source          String   @default("auto")
+  category        String?
+  status          String   @default("active")
+  matchCount      Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  lastUsedAt      DateTime?
+  diffLogs        DiffLog[]
+  conflictA       ConflictRecord[] @relation("conflictRuleA")
+  conflictB       ConflictRecord[] @relation("conflictRuleB")
+}
+
+model DiffLog {
+  id             String   @id @default(uuid())
+  ruleId         String?
+  filePath       String
+  fileExtension  String
+  language       String
+  projectId      String?
+  originalHash   String
+  modifiedHash   String
+  diffContent    String
+  astStatus      String?
+  diffType       String
+  operations     String?
+  createdAt      DateTime @default(now())
+  rule           Rule?    @relation(fields: [ruleId], references: [id])
+}
+
+model ConflictRecord {
+  id          String    @id @default(uuid())
+  ruleAId     String
+  ruleBId     String
+  scopeKey    String
+  resolution  String?
+  batchChoice String?
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  ruleA       Rule      @relation("conflictRuleA", fields: [ruleAId], references: [id])
+  ruleB       Rule      @relation("conflictRuleB", fields: [ruleBId], references: [id])
+}
+
+model MetricEvent {
+  id          String   @id @default(uuid())
+  eventType   String
+  properties  String?
+  createdAt   DateTime @default(now())
+}
+
+model AppConfig {
+  id    String @id @default("default")
+  mode  String @default("silent")
+  data  String?
+}
