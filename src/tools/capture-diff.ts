@@ -13,6 +13,7 @@ function simpleHash(s: string): string {
 }
 
 export async function handleCaptureDiff(input: CaptureDiffInput, ruleRepo: RuleRepo, diffLogRepo: DiffLogRepo, metricRepo: MetricRepo, mode: "silent" | "confirm") {
+  const startTime = performance.now();
   const fileExtension = input.filePath.split(".").pop() ?? "";
   const originalHash = simpleHash(input.originalContent);
   const modifiedHash = simpleHash(input.modifiedContent);
@@ -20,12 +21,23 @@ export async function handleCaptureDiff(input: CaptureDiffInput, ruleRepo: RuleR
   await diffLogRepo.create({ filePath: input.filePath, fileExtension, language: input.language, projectId: input.projectId, originalHash, modifiedHash, diffContent: JSON.stringify(diffResult.operations), astStatus: diffResult.status, diffType: diffResult.operations[0]?.type ?? "update", operations: JSON.stringify(diffResult.operations) });
   const distinctFiles = await diffLogRepo.countDistinctFiles(input.language, originalHash, RULE_GENERATION_THRESHOLDS.repeatWindowDays);
   const repeatCount = await diffLogRepo.countByPattern(input.language, originalHash, RULE_GENERATION_THRESHOLDS.repeatWindowDays);
+  // Check rule limits before generating rules (P1)
+  const limitInfo = await ruleRepo.getLimitInfo(input.projectId);
+  const warnings: string[] = [];
+  if (limitInfo.reached) {
+    warnings.push(`规则库已达上限：全局 ${limitInfo.globalCount}/${limitInfo.globalMax}，项目 ${limitInfo.projectCount}/${limitInfo.projectMax}。建议归档或导出旧规则。`);
+  }
+  const durationMs = performance.now() - startTime;
+  await metricRepo.track("capture_diff", { language: input.language, opCount: diffResult.operations.length, astStatus: diffResult.status, durationMs });
   if (mode === "silent") {
     const result = await processSilent(diffResult.operations, input.language, distinctFiles, repeatCount, RULE_GENERATION_THRESHOLDS.repeatWindowDays, metricRepo);
-    if (result.generatedRule && result.ruleSpec) { await ruleRepo.create({ ...result.ruleSpec, projectId: input.projectId }); await metricRepo.track("rule_auto_generated", { language: input.language }); }
-    return { content: [{ type: "text", text: JSON.stringify({ status: diffResult.status, opCount: diffResult.operations.length, notification: result.notification ?? null }) }] };
+    if (!limitInfo.reached && result.generatedRule && result.ruleSpec) {
+      await ruleRepo.create({ ...result.ruleSpec, projectId: input.projectId });
+      await metricRepo.track("rule_auto_generated", { language: input.language, source: "capture_diff" });
+    }
+    return { content: [{ type: "text", text: JSON.stringify({ status: diffResult.status, opCount: diffResult.operations.length, notification: result.notification ?? null, warnings: warnings.length > 0 ? warnings : undefined }) }] };
   } else {
     const card = await buildConfirmCard(diffResult.operations, input.language, distinctFiles, repeatCount, RULE_GENERATION_THRESHOLDS.repeatWindowDays, metricRepo);
-    return { content: [{ type: "text", text: JSON.stringify({ status: diffResult.status, opCount: diffResult.operations.length, confirmCard: card.card ?? null }) }] };
+    return { content: [{ type: "text", text: JSON.stringify({ status: diffResult.status, opCount: diffResult.operations.length, confirmCard: card.card ?? null, warnings: warnings.length > 0 ? warnings : undefined }) }] };
   }
 }

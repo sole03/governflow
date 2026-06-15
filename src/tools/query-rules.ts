@@ -3,9 +3,17 @@ import { RuleRepo } from "../storage/rule-repo.js";
 import { MetricRepo } from "../storage/metric-repo.js";
 import { matchRules } from "../engine/rule-matcher.js";
 import { truncateRules } from "../engine/token-controller.js";
-import { QueryRulesInput, MatchContext } from "../types.js";
+import { QueryRulesInput, MatchContext, TOKEN_LIMITS } from "../types.js";
+
+/** Generate a <rules_enforcement> block for system prompt injection (P2 risk mitigation). */
+function generateEnforcementBlock(rules: { type: string; pattern: string; suggestion: string }[]): string {
+  if (rules.length === 0) return "";
+  const lines = rules.map(r => `- [${r.type}] "${r.pattern}" → "${r.suggestion}"`);
+  return `<rules_enforcement>\n${lines.join("\n")}\n</rules_enforcement>`;
+}
 
 export async function handleQueryRules(input: QueryRulesInput, ruleRepo: RuleRepo, metricRepo: MetricRepo) {
+  const startTime = performance.now();
   const ext = input.filePath.split(".").pop() ?? "";
   // Read file content for pattern matching; silently continue if file is unavailable
   let fileContent = "";
@@ -24,6 +32,20 @@ export async function handleQueryRules(input: QueryRulesInput, ruleRepo: RuleRep
     result.truncated = sess.truncated;
   }
   for (const sr of result.rules) await ruleRepo.incrementMatchCount(sr.rule.id);
-  await metricRepo.track("query_rules", { language: input.language, candidates: rules.length, returned: result.rules.length });
-  return { content: [{ type: "text", text: JSON.stringify({ rules: result.rules.map(sr => ({ id: sr.rule.id, type: sr.rule.type, pattern: sr.rule.pattern, suggestion: sr.rule.suggestion, score: sr.score, matchReasons: sr.matchReasons })), totalTokens: result.totalTokens, truncated: result.truncated }) }] };
+  const durationMs = performance.now() - startTime;
+  await metricRepo.track("query_rules", { language: input.language, candidates: rules.length, returned: result.rules.length, durationMs });
+  // Build enforcement block for system prompt injection (P2)
+  const enforcement = generateEnforcementBlock(result.rules.map(sr => ({ type: sr.rule.type, pattern: sr.rule.pattern, suggestion: sr.rule.suggestion })));
+  return {
+    content: [{
+      type: "text",
+      text: JSON.stringify({
+        rules: result.rules.map(sr => ({ id: sr.rule.id, type: sr.rule.type, pattern: sr.rule.pattern, suggestion: sr.rule.suggestion, score: sr.score, matchReasons: sr.matchReasons })),
+        totalTokens: result.totalTokens,
+        truncated: result.truncated,
+        queryDurationMs: durationMs,
+        enforcement,
+      }),
+    }],
+  };
 }

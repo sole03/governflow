@@ -39,8 +39,16 @@ export async function handleAnalyzeWorkspace(
   input: AnalyzeWorkspaceInput,
   ruleRepo: RuleRepo, diffLogRepo: DiffLogRepo, metricRepo: MetricRepo,
 ) {
+  const startTime = performance.now();
   const head = input.headCommit ?? "HEAD";
   const result: AnalyzeResult = { analyzedFiles: 0, skippedFiles: 0, generatedRules: [], conflicts: [], errors: [] };
+  const warnings: string[] = [];
+
+  // Check rule limits before processing (P1)
+  const limitInfo = await ruleRepo.getLimitInfo(input.taskId);
+  if (limitInfo.reached) {
+    warnings.push(`规则库已达上限：全局 ${limitInfo.globalCount}/${limitInfo.globalMax}，项目 ${limitInfo.projectCount}/${limitInfo.projectMax}。建议归档或导出旧规则。`);
+  }
 
   const diffOut = git(`diff --name-only ${input.baseCommit} ${head}`);
   // Non-git mode: process fileContents directly with concurrency
@@ -65,10 +73,10 @@ export async function handleAnalyzeWorkspace(
       }));
     }
     await metricRepo.track("analyze_workspace", { taskId: input.taskId, analyzedFiles: result.analyzedFiles, rulesGenerated: result.generatedRules.length, source: input.taskId ? "codex" : "manual" });
-    return { content: [{ type: "text", text: JSON.stringify(result) }] };
+    return { content: [{ type: "text", text: JSON.stringify({ ...result, warnings: warnings.length > 0 ? warnings : undefined }) }] };
   }
   if (!diffOut) {
-    return { content: [{ type: "text", text: JSON.stringify({ error: "No diff output or git unavailable", result }) }] };
+    return { content: [{ type: "text", text: JSON.stringify({ error: "No diff output or git unavailable", result, warnings: warnings.length > 0 ? warnings : undefined }) }] };
   }
 
   const files = diffOut.split("\n").filter(Boolean).filter(f => !isSkipped(f));
@@ -94,15 +102,18 @@ export async function handleAnalyzeWorkspace(
       const evalR = evaluateRuleCandidate(diffR.operations, lang, distinctFiles + 1, repeatCount + 1, RULE_GENERATION_THRESHOLDS.repeatWindowDays);
       if (!evalR.generate || !evalR.ruleCandidate) return;
 
-      // Conflict check
-      const existing = await ruleRepo.findConflicting(evalR.ruleCandidate.type, lang, evalR.ruleCandidate.pattern);
-      for (const ex of existing) {
-        const check = detectConflict(
-          { ...ex, tags: ex.tags ?? [] } as unknown as Rule,
-          { ...evalR.ruleCandidate, id: "", createdAt: new Date(), updatedAt: new Date(), matchCount: 0, priority: 1.0, status: "pending" as any, source: "auto" as any } as unknown as Rule,
-        );
-        if (check.hasConflict) {
-          result.conflicts.push({ ruleA: evalR.ruleCandidate, ruleB: ex, reason: check.reason! });
+      // Skip rule creation if limits are reached (P1)
+      if (!limitInfo.reached) {
+        // Conflict check
+        const existing = await ruleRepo.findConflicting(evalR.ruleCandidate.type, lang, evalR.ruleCandidate.pattern);
+        for (const ex of existing) {
+          const check = detectConflict(
+            { ...ex, tags: ex.tags ?? [] } as unknown as Rule,
+            { ...evalR.ruleCandidate, id: "", createdAt: new Date(), updatedAt: new Date(), matchCount: 0, priority: 1.0, status: "pending" as any, source: "auto" as any } as unknown as Rule,
+          );
+          if (check.hasConflict) {
+            result.conflicts.push({ ruleA: evalR.ruleCandidate, ruleB: ex, reason: check.reason! });
+          }
         }
       }
 
@@ -115,7 +126,9 @@ export async function handleAnalyzeWorkspace(
         diffType: diffR.operations[0]?.type ?? "update", operations: JSON.stringify(diffR.operations),
       });
 
-      result.generatedRules.push({ rule: evalR.ruleCandidate, filePath: fp });
+      if (!limitInfo.reached) {
+        result.generatedRules.push({ rule: evalR.ruleCandidate, filePath: fp });
+      }
       result.analyzedFiles++;
     } catch (err) {
       result.errors.push({ filePath: fp, error: String(err) });
@@ -127,11 +140,12 @@ export async function handleAnalyzeWorkspace(
     await Promise.all(files.slice(i, i + CONCURRENCY).map(processFile));
   }
 
+  const durationMs = performance.now() - startTime;
   await metricRepo.track("analyze_workspace", {
     taskId: input.taskId, analyzedFiles: result.analyzedFiles,
     rulesGenerated: result.generatedRules.length, conflictsFound: result.conflicts.length,
-    source: "codex",
+    source: "codex", durationMs,
   });
 
-  return { content: [{ type: "text", text: JSON.stringify(result) }] };
+  return { content: [{ type: "text", text: JSON.stringify({ ...result, warnings: warnings.length > 0 ? warnings : undefined }) }] };
 }

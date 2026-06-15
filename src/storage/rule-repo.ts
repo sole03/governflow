@@ -97,8 +97,30 @@ export class RuleRepo {
   }
 
   async isLimitReached(): Promise<boolean> {
-    const count = await this.countByScope("global");
-    return count >= TOKEN_LIMITS.maxRulesGlobal;
+    const info = await this.getLimitInfo();
+    return info.reached;
+  }
+
+  /** Return detailed limit info including current counts and max thresholds. */
+  async getLimitInfo(projectId?: string): Promise<{
+    reached: boolean;
+    globalCount: number;
+    globalMax: number;
+    projectCount: number;
+    projectMax: number;
+  }> {
+    const prisma = getPrismaClient();
+    const globalCount = await prisma.rule.count({ where: { status: "active" } });
+    const projectCount = projectId
+      ? await prisma.rule.count({ where: { projectId, status: "active" } })
+      : 0;
+    return {
+      reached: globalCount >= TOKEN_LIMITS.maxRulesGlobal || (projectId ? projectCount >= TOKEN_LIMITS.maxRulesPerProject : false),
+      globalCount,
+      globalMax: TOKEN_LIMITS.maxRulesGlobal,
+      projectCount,
+      projectMax: TOKEN_LIMITS.maxRulesPerProject,
+    };
   }
 
   async findConflicting(type: string, language: string, pattern: string): Promise<Rule[]> {
