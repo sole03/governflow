@@ -22,19 +22,4 @@ jobs:
         run: npm ci
 
       - name: Check license headers
-        run: |
-          MISSING=0
-          while IFS= read -r f; do
-            content=$(cat "$f")
-            if [[ "$content" =~ ^/\*\*.*Copyright\ 2026\.*熊高锐 ]]; then
-              :
-            else
-              echo "MISSING HEADER: $f"
-              MISSING=$((MISSING+1))
-            fi
-          done < <(find src tests -name "*.ts" ! -path "*/node_modules/*")
-          if [ "$MISSING" -gt 0 ]; then
-            echo "FAILED: $MISSING files missing license headers"
-            exit 1
-          fi
-          echo "All files have valid license headers."
+        run: npm run license:check

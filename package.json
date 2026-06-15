@@ -12,8 +12,8 @@
     "db:push": "prisma db push",
     "test": "vitest run",
     "test:watch": "vitest",
-    "license:check": "license-checker-and-fixer --check",
-    "license:fix": "license-checker-and-fixer --fix"
+    "license:check": "node scripts/check-license.js",
+    "license:fix": "node scripts/check-license.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
