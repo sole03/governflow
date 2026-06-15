@@ -3,7 +3,8 @@
 ![build](https://img.shields.io/badge/build-passing-brightgreen)
 ![coverage](https://img.shields.io/badge/coverage-95%25-brightgreen)
 ![MCP](https://img.shields.io/badge/MCP_v1.29.0-compliant-blue)
-![license](https://img.shields.io/badge/license-MIT-green)
+[![License](https://img.shields.io/badge/license-Apache_2.0-blue)](LICENSE)
+[![Trademark Policy](https://img.shields.io/badge/trademark-policy-orange)](TRADEMARK.md)
 
 > A production-grade MCP server that combines a cognition graph engine with a trusted governance layer. Provides intelligent code pattern matching, AST-level constraint validation, and auditable injection approval for AI agents.
 

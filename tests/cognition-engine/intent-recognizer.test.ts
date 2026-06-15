@@ -64,6 +64,62 @@ new file mode 100644
 +function getUser(id: string) { return null; }
 +function updateUser(id: string, data: Partial<User>) { return data; }
 +function deleteUser(id: string) {}
++`;
+
+const NO_CHANGE_DIFF = `diff --git a/src/foo.ts b/src/foo.ts
+--- a/src/foo.ts
++++ b/src/foo.ts
+@@ -1,3 +1,3 @@
+ const x = 1;
+-const y = 2;
++const z = 3;
+`;
+
+const SINGLE_LINE_DIFF = `diff --git a/src/bar.ts b/src/bar.ts
+--- a/src/bar.ts
++++ b/src/bar.ts
+@@ -1,3 +1,3 @@
+-const a = 1;
++const a = 2;
+`;
+
+const ERROR_HEAVY_DIFF = `diff --git a/src/check.ts b/src/check.ts
+--- a/src/check.ts
++++ b/src/check.ts
+@@ -1,5 +1,9 @@
+ function load() {
+-  return data;
++  try {
++    const result = unsafeLoad();
++    if (!result) throw new Error("missing");
++    return validate(result);
++  } catch (e) {
++    return fallback(e);
++  }
+ }
+`;
+
+const CROSS_MODULE_DIFF = `diff --git a/src/a.ts b/src/a.ts
+--- a/src/a.ts
++++ b/src/a.ts
+@@ -1,5 +1,12 @@
++export interface Result<T> { data: T; ok: boolean }
++export function ok<T>(d: T): Result<T> { return { data: d, ok: true }; }
+diff --git a/src/b.ts b/src/b.ts
+--- a/src/b.ts
++++ b/src/b.ts
+@@ -1,5 +1,4 @@
+ import { ok } from "./a.js";
++import { Result } from "./a.js";
+`;
+
+const DELETE_ONLY_DIFF = `diff --git a/src/old.ts b/src/old.ts
+--- a/src/old.ts
++++ b/src/old.ts
+@@ -1,10 +0,0 @@
+-legacyFunction();
+-// deprecated code
+-// remove entire file
 `;
 
 describe("IntentRecognizer", () => {
@@ -83,12 +139,12 @@ describe("IntentRecognizer", () => {
     expect(result.stats.filesChanged).toBe(1);
   });
 
- it("classifies net-new file as BOILERPLATE", async () => {
-   const result = await recognizeIntent(BOILERPLATE_DIFF, "src/models/user.ts");
-   expect(["BOILERPLATE", "BUGFIX"]).toContain(result.intent);
+  it("classifies net-new file as BOILERPLATE", async () => {
+    const result = await recognizeIntent(BOILERPLATE_DIFF, "src/models/user.ts");
+    expect(["BOILERPLATE", "BUGFIX"]).toContain(result.intent);
     expect(result.stats.addedLines).toBeGreaterThan(5);
-   expect(result.stats.removedLines).toBe(0);
- });
+    expect(result.stats.removedLines).toBe(0);
+  });
 
   it("handles empty diff gracefully", async () => {
     const result = await recognizeIntent("", "file.ts");
@@ -101,5 +157,65 @@ describe("IntentRecognizer", () => {
     expect(result.stats.filesChanged).toBe(2);
     expect(result.stats.addedLines).toBeGreaterThan(0);
     expect(result.confidence).toBeGreaterThan(0);
+  });
+
+  // ── New edge case tests ────────────────────────────────
+
+  it("classifies error-heavy diff as BUGFIX with high confidence", async () => {
+    const result = await recognizeIntent(ERROR_HEAVY_DIFF, "src/check.ts");
+    expect(result.intent).toBe("BUGFIX");
+    expect(result.confidence).toBeGreaterThanOrEqual(0.4);
+    expect(result.reasoning.some(r => r.toLowerCase().includes("error"))).toBe(true);
+  });
+
+  it("classifies cross-module type introduction as REFACTOR", async () => {
+    const result = await recognizeIntent(CROSS_MODULE_DIFF, "src/a.ts");
+    expect(result.intent).toBe("REFACTOR");
+    expect(result.stats.filesChanged).toBe(2);
+  });
+
+  it("handles diff with only removals gracefully", async () => {
+    const result = await recognizeIntent(DELETE_ONLY_DIFF, "src/old.ts");
+    expect(result.intent).toBeDefined();
+    expect(result.stats.removedLines).toBeGreaterThan(0);
+    expect(result.stats.addedLines).toBe(0);
+  });
+
+  it("classifies trivial single-line change as BUGFIX", async () => {
+    const result = await recognizeIntent(SINGLE_LINE_DIFF, "src/bar.ts");
+    expect(result.intent).toBe("BUGFIX");
+    expect(result.stats.filesChanged).toBe(1);
+    expect(result.stats.addedLines).toBe(1);
+    expect(result.stats.removedLines).toBe(1);
+  });
+
+  it("classifies no-signal minimal diff as BUGFIX with low confidence", async () => {
+    const result = await recognizeIntent(NO_CHANGE_DIFF, "src/foo.ts");
+    expect(result.intent).toBe("BUGFIX");
+    expect(result.confidence).toBeGreaterThanOrEqual(0.3);
+  });
+
+  it("returns zero stats for completely empty diff", async () => {
+    const result = await recognizeIntent("", "");
+    expect(result.stats.addedLines).toBe(0);
+    expect(result.stats.removedLines).toBe(0);
+    expect(result.stats.filesChanged).toBe(0);
+    expect(result.stats.nodeTypeChanges).toEqual([]);
+  });
+
+  it("reports node types in stats", async () => {
+    const result = await recognizeIntent(REFACTOR_DIFF, "src/user.ts");
+    expect(Array.isArray(result.stats.nodeTypeChanges)).toBe(true);
+    expect(result.stats.nodeTypeChanges.length).toBeGreaterThan(0);
+  });
+
+  it("confidence stays within [0, 1]", async () => {
+    const highResult = await recognizeIntent(REFACTOR_DIFF, "src/user.ts");
+    expect(highResult.confidence).toBeGreaterThanOrEqual(0);
+    expect(highResult.confidence).toBeLessThanOrEqual(1);
+
+    const lowResult = await recognizeIntent("", "x.ts");
+    expect(lowResult.confidence).toBeGreaterThanOrEqual(0);
+    expect(lowResult.confidence).toBeLessThanOrEqual(1);
   });
 });
