@@ -17,7 +17,9 @@
     "license:check": "node scripts/check-license.js",
     "license:fix": "node scripts/check-license.js",
     "bench": "npx tsx benchmarks/intent-recognizer.bench.ts && npx tsx benchmarks/graph-traverser.bench.ts",
-    "start:http": "node dist/transport/http-server.js"
+    "start:http": "node dist/transport/http-server.js",
+    "build:core": "cd packages/core && npx tsc",
+    "build:all": "npm run build && npm run build:core"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -76,5 +78,8 @@
     "prisma": {
       "optional": true
     }
-  }
+  },
+  "workspaces": [
+    "packages/*"
+  ]
 }

@@ -1,10 +1,9 @@
 import { defineConfig } from "vitest/config";
+
 export default defineConfig({
   test: {
     globals: true,
-    environment: "node",
     include: ["tests/**/*.test.ts"],
-    cache: false,
-    setupFiles: ["./vitest.setup.ts"],
+    environment: "node",
   },
 });

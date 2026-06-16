@@ -9,8 +9,6 @@ import { ApprovalWorkflowService, resetApprovalWorkflowService } from "../../src
 import { resetApprovalWorkflowService as resetSvc } from "../../src/governance/approval-workflow.js";
 import { getPrismaClient } from "../../src/data/client.js";
 
-process.env.DATABASE_URL = "file:./prisma/dev.db";
-
 beforeEach(async () => {
   resetApprovalWorkflowService();
   const prisma = getPrismaClient();

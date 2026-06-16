@@ -8,8 +8,6 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { RuleImmuneEngine, resetRuleImmuneEngine } from "../../src/governance/rule-immune.js";
 import { getPrismaClient } from "../../src/data/client.js";
 
-process.env.DATABASE_URL = "file:./prisma/dev.db";
-
 beforeEach(async () => {
   resetRuleImmuneEngine();
   const prisma = getPrismaClient();

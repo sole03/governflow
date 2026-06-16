@@ -310,6 +310,36 @@ export function generatePatchFromFailures(
   return [...patches.values()];
 }
 
+
+/**
+ * Generate patches from validation failures with a confidence score.
+ * Confidence is based on:
+ * - Match precision (expected/actual clarity)
+ * - AST node locatability
+ * Returns { patches, confidence } where confidence is in [0, 1].
+ */
+export function generatePatchWithConfidence(
+  failures: ValidationFailure[],
+  ast: ASTNode,
+): { patches: TransformPatch[]; confidence: number } {
+  const patches = generatePatchFromFailures(failures, ast);
+
+  // Heuristic confidence:
+  // - Each failure with clear expected/actual → high confidence
+  // - "(no matching node)" → low confidence
+  const ambiguousCount = failures.filter(
+    f => f.actual.includes("(no matching node)") || f.actual.includes("not found"),
+  ).length;
+
+  const confidence = failures.length > 0
+    ? Math.max(0.3, 1 - (ambiguousCount / failures.length) * 0.5)
+    : 1.0;
+
+  return {
+    patches,
+    confidence: Math.round(confidence * 100) / 100,
+  };
+}
 // ── High-level API ────────────────────────────────────────
 
 /**
