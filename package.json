@@ -43,7 +43,7 @@
   },
   "homepage": "https://github.com/sole03/mcp-rule-engine#readme",
   "bin": {
-    "mcp-cognition-engine": "./dist/cli.js"
+    "mcp-cognition-engine": "dist/cli.js"
   },
   "files": [
     "dist",
