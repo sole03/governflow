@@ -5,7 +5,16 @@ on:
     paths:
       - 'packages/core/src/constraints/**'
       - 'packages/core/src/proposal/**'
+      - 'packages/core/src/verification/**'
+      - 'packages/core/src/perception/**'
+      - 'packages/core/src/delivery/**'
+      - 'packages/core/src/dashboard/**'
       - 'prisma/schema.prisma'
+      - 'tests/verification/**'
+
+permissions:
+  contents: read
+  pull-requests: write
 
 jobs:
   verify:
@@ -32,25 +41,16 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            // Post verification results as PR comment
             const fs = require('fs');
             const path = require('path');
 
-            const propertyResultsPath = path.join(
-              process.env.GITHUB_WORKSPACE || '.',
-              'verification-results.json'
-            );
-            const shadowResultsPath = path.join(
-              process.env.GITHUB_WORKSPACE || '.',
-              'shadow-verification-results.json'
-            );
-
             let body = '## 🔍 Rule Verification Results\n\n';
 
+            const propertyResultsPath = path.join(process.env.GITHUB_WORKSPACE, 'verification-results.json');
+            const shadowResultsPath = path.join(process.env.GITHUB_WORKSPACE, 'shadow-verification-results.json');
+
             if (fs.existsSync(propertyResultsPath)) {
-              const propertyResults = JSON.parse(
-                fs.readFileSync(propertyResultsPath, 'utf-8')
-              );
+              const propertyResults = JSON.parse(fs.readFileSync(propertyResultsPath, 'utf-8'));
               body += '### Property Tests\n\n';
               body += '| Invariant | Passed | Failed | Duration (ms) |\n';
               body += '|-----------|--------|--------|---------------|\n';
@@ -59,18 +59,20 @@ jobs:
                 body += `| ${status} ${r.name} | ${r.passed} | ${r.failed} | ${r.duration} |\n`;
               }
               body += '\n';
+            } else {
+              body += '### Property Tests\n\nNo results file found.\n\n';
             }
 
             if (fs.existsSync(shadowResultsPath)) {
-              const shadowResults = JSON.parse(
-                fs.readFileSync(shadowResultsPath, 'utf-8')
-              );
+              const shadowResults = JSON.parse(fs.readFileSync(shadowResultsPath, 'utf-8'));
               body += '### Shadow Replay\n\n';
-              body += `- **Total cases**: ${shadowResults.totalCases}\n`;
-              body += `- **Passed**: ${shadowResults.passed}\n`;
-              body += `- **Failed**: ${shadowResults.failed}\n`;
-              body += `- **New false positives**: ${shadowResults.newFalsePositives}\n`;
-              body += `- **Duration**: ${shadowResults.durationMs}ms\n`;
+              body += `- Total cases: ${shadowResults.totalCases}\n`;
+              body += `- Passed: ${shadowResults.passed}\n`;
+              body += `- Failed: ${shadowResults.failed}\n`;
+              body += `- New false positives: ${shadowResults.newFalsePositives}\n`;
+              body += `- Duration: ${shadowResults.durationMs}ms\n`;
+            } else {
+              body += '### Shadow Replay\n\nNo results file found.\n\n';
             }
 
             await github.rest.issues.createComment({
