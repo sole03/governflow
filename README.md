@@ -46,7 +46,7 @@ npm run dev
 # 或启动 HTTP Server (REST API 模式)
 npm run start:http          # 默认端口由 MCP SDK 管理
 
-# 内核构建 (独立发布 @wind-coms/governflow-core)
+# 内核构建 (独立发布 governflow-core)
 npm run build:core
 ```
 
@@ -66,7 +66,7 @@ npm run build:core
 ```
 governflow/
 ├── packages/
-│   ├── core/                    # @wind-coms/governflow-core — 协议无关内核
+│   ├── core/                    # governflow-core — 协议无关内核
 │   │   └── src/
 │   │       ├── perception/      # 感知层: MerlionBridge + ShapleyAttributor
 │   │       ├── proposal/        # 提案层: RegoCompiler + StructuredGenerator + PromptPipeline
@@ -80,7 +80,7 @@ governflow/
 │   │       ├── audit/           # 满意度追踪 (开发者体验兜底)
 │   │       ├── cli/             # CLI 入口
 │   │       └── di/              # 依赖注入容器
-│   └── dashboard/               # @wind-coms/governflow-dashboard — 可视化仪表盘
+│   └── dashboard/               # governflow-dashboard — 可视化仪表盘
 ├── src/                         # MCP Server 传输层 (stdio + HTTP)
 │   ├── transport/               # MCP 工具处理器 + HTTP 服务
 │   ├── governance/              # 策略引擎 + 规则免疫 + 审批工作流 + 影子服务
@@ -152,14 +152,14 @@ governflow/
 
 ## 内核包
 
-`@wind-coms/governflow-core` 零 MCP 依赖，可独立发布为 npm 包：
+`governflow-core` 零 MCP 依赖，可独立发布为 npm 包：
 
 ```bash
-npm install @wind-coms/governflow-core
+npm install governflow-core
 ```
 
 ```typescript
-import { MerlionBridge, RegoCompiler, CanaryController } from "@wind-coms/governflow-core";
+import { MerlionBridge, RegoCompiler, CanaryController } from "governflow-core";
 ```
 
 ---

@@ -15,7 +15,7 @@
  */
 
 /**
- * @file @wind-coms/governflow-core — 协议无关的认知治理内核
+ * @file governflow-core — 协议无关的认知治理内核
  *
  * 统一导出所有公共 API。
  * 该包不依赖任何 MCP SDK，可被任意 Agent 运行时消费。

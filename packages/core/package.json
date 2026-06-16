@@ -1,5 +1,5 @@
 {
-  "name": "@wind-coms/governflow-core",
+  "name": "governflow-core",
   "version": "0.1.0",
   "description": "Protocol-agnostic governance kernel for GovernFlow — constraint DSL compiler, policy engine, COW sandbox, perception & delivery pipeline.",
   "type": "module",
@@ -51,9 +51,7 @@
     "canary"
   ],
   "license": "Apache-2.0",
-  "publishConfig": {
-    "access": "public"
-  },
+  "publishConfig": null,
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sole03/mcp-rule-engine.git",

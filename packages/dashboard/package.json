@@ -1,5 +1,5 @@
 {
-  "name": "@wind-coms/governflow-dashboard",
+  "name": "governflow-dashboard",
   "version": "0.1.0",
   "description": "GovernFlow dashboard — metrics collector and visualization for the AI-native governance pipeline.",
   "type": "module",
@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@wind-coms/governflow-core": "*"
+    "governflow-core": "*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -27,9 +27,7 @@
     "visualization"
   ],
   "license": "Apache-2.0",
-  "publishConfig": {
-    "access": "public"
-  },
+  "publishConfig": null,
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sole03/mcp-rule-engine.git",
