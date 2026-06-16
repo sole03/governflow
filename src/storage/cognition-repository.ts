@@ -15,6 +15,7 @@
  */
 
 import { Prisma } from "@prisma/client";
+import { LRUCache } from "./cache.js";
 import { getPrismaClient } from "./client.js";
 import {
   CognitionTypeStr,
@@ -118,6 +119,8 @@ function toAstTemplate(r: Prisma.AstTemplateGetPayload<{}>): AstTemplateData {
 // ── Repository ─────────────────────────────────────────────
 
 export class CognitionRepository {
+  private nodeCache = new LRUCache<CognitionNodeData[]>(500, 5 * 60 * 1000);
+  private neighborCache = new LRUCache<SubgraphResult>(500, 2 * 60 * 1000);
   /**
    * Atomically create a cognition node and its associated edges.
    * Uses a Prisma  for atomicity.
@@ -163,12 +166,18 @@ export class CognitionRepository {
   }
 
   async findNodesBySemanticHash(hash: string): Promise<CognitionNodeData[]> {
+    const cacheKey = "hash:" + hash;
+    const cached = this.nodeCache.get(cacheKey);
+    if (cached !== undefined) return cached;
+
     const prisma = getPrismaClient();
     const rows = await prisma.cognitionNode.findMany({
       where: { semanticHash: hash },
       include: { astTemplate: true },
     });
-    return rows.map(toCognitionNode);
+    const result = rows.map(toCognitionNode);
+    this.nodeCache.set(cacheKey, result);
+    return result;
   }
 
   /**

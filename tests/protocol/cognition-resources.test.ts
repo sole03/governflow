@@ -18,11 +18,11 @@
  * @file Protocol compliance tests for MCP resources and schemas.
  */
 import { describe, it, expect } from "vitest";
-import { RESOURCES, readCognitionSchema, readCognitionStats, readCognitionDocs } from "../../src/resources/cognition-resources.js";
+import { RESOURCES, handleReadResource } from "../../src/resources/cognition-resources.js";
 
 describe("Resource Definitions", () => {
- it("exposes 3 resources with cognition:// URIs", () => {
-    expect(RESOURCES.length).toBeGreaterThanOrEqual(3);
+  it("exposes 4 resources with cognition:// URIs", () => {
+    expect(RESOURCES.length).toBeGreaterThanOrEqual(4);
     for (const r of RESOURCES) {
       expect(r.uri).toMatch(/^cognition:\/\//);
     }
@@ -33,7 +33,7 @@ describe("Resource Definitions", () => {
     expect(schema).toBeDefined();
     expect(schema?.mimeType).toBe("application/json");
 
-    const docs = RESOURCES.find(r => r.uri === "cognition://docs");
+    const docs = RESOURCES.find(r => r.uri === "cognition://docs/overview");
     expect(docs).toBeDefined();
     expect(docs?.mimeType).toBe("text/markdown");
   });
@@ -41,8 +41,9 @@ describe("Resource Definitions", () => {
 
 describe("readCognitionSchema", () => {
   it("returns valid JSON schema", async () => {
-    const result = await readCognitionSchema();
-    const parsed = JSON.parse(result);
+    const result = await handleReadResource("cognition://schema");
+    const text = result.contents[0].text;
+    const parsed = JSON.parse(text);
     expect(parsed.title).toBe("CognitionGraph");
     expect(parsed.properties).toBeDefined();
     expect(parsed.properties.CognitionNode).toBeDefined();
@@ -51,8 +52,9 @@ describe("readCognitionSchema", () => {
 
 describe("readCognitionStats", () => {
   it("returns stats with expected fields", async () => {
-    const result = await readCognitionStats();
-    const parsed = JSON.parse(result);
+    const result = await handleReadResource("cognition://stats");
+    const text = result.contents[0].text;
+    const parsed = JSON.parse(text);
     expect(typeof parsed.nodeCount).toBe("number");
     expect(typeof parsed.edgeCount).toBe("number");
     expect(typeof parsed.feedbackCount).toBe("number");
@@ -62,8 +64,9 @@ describe("readCognitionStats", () => {
 
 describe("readCognitionDocs", () => {
   it("returns markdown content", async () => {
-    const result = await readCognitionDocs();
-    expect(result.length).toBeGreaterThan(100);
-    expect(result).toContain("cognition_query");
+    const result = await handleReadResource("cognition://docs/overview");
+    const text = result.contents[0].text;
+    expect(text.length).toBeGreaterThan(100);
+    expect(text).toContain("cognition_query");
   });
 });
