@@ -72,6 +72,7 @@ import {
 import { getPolicyEngine, DEFAULT_POLICIES } from "./policy-engine/index.js";
 import type { PolicyEvalContext } from "./policy-engine/index.js";
 import { logger, logToolExecution, logPolicyDecision } from "./observability/index.js";
+import { getVectorStore } from "./embedding/index.js";
 
 // ── Server ────────────────────────────────────────────────
 
@@ -219,6 +220,12 @@ async function main() {
   logger.info({ policyCount: policyEngine.getAllPolicies().length }, "policy engine initialized");
 
   await prisma.$connect();
+
+  // Warm up embeddings for existing nodes (fire-and-forget, non-blocking)
+  const vectorStore = getVectorStore();
+  vectorStore.embedUnembeddedNodes(20).then(count => {
+    if (count > 0) logger.info({ embeddedCount: count }, "embedding warmup complete");
+  }).catch(() => {});
   await prisma.appConfig.upsert({ where: { id: "default" }, update: {}, create: { id: "default", mode: "silent" } });
 
   const transport = new StdioServerTransport();

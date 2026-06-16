@@ -23,6 +23,7 @@
  */
 
 import { CognitionRepository, computeSemanticHash } from "../storage/cognition-repository.js";
+import { getVectorStore } from "../embedding/vector-store.js";
 import { COGNITION_TYPES, EDGE_RELATIONS } from "../storage/cognition-types.js";
 import type { CognitionNodeData, CognitionEdgeData } from "../storage/cognition-types.js";
 import type { IntentType } from "./types.js";

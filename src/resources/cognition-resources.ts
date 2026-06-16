@@ -128,7 +128,7 @@ async function readCognitionSchema(): Promise<{ contents: { uri: string; mimeTyp
 async function readCognitionStats(): Promise<{ contents: { uri: string; mimeType: string; text: string }[] }> {
   const prisma = getPrismaClient();
   const sevenDaysAgo = new Date(Date.now() - 7 * 86400000);
-  const [nodeCount, edgeCount, feedbackCount, recentFeedback, approvedCount] = await Promise.all([
+  const [nodeCount, edgeCount, feedbackCount, recentFeedback, approvedCount, embeddedCount] = await Promise.all([
     prisma.cognitionNode.count(),
     prisma.cognitionEdge.count(),
     prisma.metricEvent.count({ where: { eventType: { startsWith: "cognition_feedback" } } }),
@@ -142,7 +142,10 @@ async function readCognitionStats(): Promise<{ contents: { uri: string; mimeType
         createdAt: { gte: sevenDaysAgo },
       },
     }),
-  ]);
+    prisma.cognitionNode.count({
+      where: { metadata: { contains: "embedding" } },
+    }),
+  ] as const);
   const approvalRate7d = recentFeedback > 0 ? approvedCount / recentFeedback : 0;
   const thresholdAdjustmentSuggestion =
     approvalRate7d > 0.4 || approvalRate7d < 0.05
@@ -159,6 +162,8 @@ async function readCognitionStats(): Promise<{ contents: { uri: string; mimeType
           feedbackCount,
           approvalRate7d: Math.round(approvalRate7d * 100) / 100,
           thresholdAdjustmentSuggestion,
+          embeddedNodes: embeddedCount,
+          embeddingCoverage: nodeCount > 0 ? Math.round((embeddedCount / nodeCount) * 100) / 100 : 0,
           timestamp: new Date().toISOString(),
         },
         null,
