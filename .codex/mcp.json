@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "cognition-engine": {
+      "command": "node",
+      "args": ["dist/cli.js"],
+      "env": {
+        "DATABASE_URL": "file:./prisma/dev.db"
+      },
+      "cwd": "D:/Desktop/mcp"
+    }
+  }
+}
