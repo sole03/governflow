@@ -7,7 +7,10 @@ import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 
 const TARGET_DIRS = ["src", "tests"];
-const HEADER_CHECK = "/**\n * Copyright 2026 熊高锐";
+const SHEBANG = "#!/usr/bin/env node";
+const HEADER_START = "/**";
+const HEADER_COPYRIGHT = "Copyright 2026 熊高锐";
+const HEADER_APACHE = "Licensed under the Apache License, Version 2.0";
 
 function scanFiles(dir, results) {
   const entries = readdirSync(dir, { withFileTypes: true });
@@ -27,8 +30,20 @@ for (const d of TARGET_DIRS) scanFiles(d, files);
 
 let missing = 0;
 for (const f of files) {
-  const content = readFileSync(f, "utf-8");
-  if (!content.startsWith(HEADER_CHECK)) {
+  const raw = readFileSync(f, "utf-8");
+  // Normalize line endings to \n for cross-platform comparison
+  const content = raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+  // For files with shebang, skip it before checking
+  const checkContent = content.startsWith(SHEBANG + "\n")
+    ? content.slice(SHEBANG.length + 1)
+    : content;
+
+  if (
+    !checkContent.startsWith(HEADER_START) ||
+    !checkContent.includes(HEADER_COPYRIGHT) ||
+    !checkContent.includes(HEADER_APACHE)
+  ) {
     console.log("MISSING HEADER:", f);
     missing++;
   }
