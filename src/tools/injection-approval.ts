@@ -165,8 +165,14 @@ export async function handleApproveInjection(input: {
       }],
     };
   } catch (err) {
+    const msg = String(err);
+    const friendly = msg.includes("does not exist")
+      ? "Database schema out of sync — run prisma db push"
+      : msg.includes("locked") || msg.includes("busy")
+      ? "Database temporarily unavailable"
+      : "Internal error: " + msg.slice(0, 200);
     return {
-      content: [{ type: "text", text: JSON.stringify({ error: String(err), code: -32603, retryable: true }) }],
+      content: [{ type: "text", text: JSON.stringify({ error: friendly, code: -32603, retryable: true }) }],
     };
   }
 }
