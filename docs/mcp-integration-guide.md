@@ -1,7 +1,7 @@
 # MCP Production-Grade Integration Guide
 
 > For: Cursor, Claude Desktop, Cline / Roo Code
-> Last updated: 2026-06-15
+> Last updated: 2026-06-16
 
 ---
 
@@ -15,10 +15,10 @@
 
 ```bash
 # stdio mode (default for Cursor / Claude Desktop)
-npm run build && node dist/index.js
+npm run build && node dist/cli.js
 
 # HTTP mode (for Cline / Roo Code remote agents)
-TRANSPORT=http PORT=3000 npm run build && node dist/index.js
+TRANSPORT=http PORT=3000 npm run build && node dist/cli.js
 ```
 
 ---
@@ -149,3 +149,4 @@ All error responses include a `retryable` boolean field.
 | HTTP connection refused | Wrong port | Check `PORT` env var and firewall |
 | "Tool not found" | SDK version mismatch | Use @modelcontextprotocol/sdk >= 1.0 |
 | Resource returns empty | Database not migrated | Run `npx prisma migrate deploy` |
+

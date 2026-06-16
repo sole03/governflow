@@ -18,7 +18,7 @@
 import { execSync } from "child_process";
 import { existsSync, mkdirSync } from "fs";
 import { homedir } from "os";
-import { join } from "path";
+import { join, resolve as resolvePath } from "path";
 
 // ── Resolve database path ────────────────────────────────
 
@@ -63,6 +63,30 @@ ensureDatabase();
 
 // Set env for the Prisma client used by the server
 process.env.DATABASE_URL = `file:${resolveDbPath()}`;
+
+// ── Lazy Prisma Client generation fallback ─────────────────
+// If postinstall was skipped (e.g. CI with --ignore-scripts),
+// generate the Prisma client on first run so the import succeeds.
+// Uses stdio: "pipe" to avoid polluting the MCP JSON-RPC stdout channel.
+try {
+  const prismaClientEntry = resolvePath(import.meta.dirname!, "..", "node_modules", ".prisma", "client", "index.js");
+  if (!existsSync(prismaClientEntry.replace(/\\/g, "/"))) {
+    throw new Error("Prisma client not generated");
+  }
+} catch {
+  console.error("[mcp-cognition-engine] Prisma client not found — running generate...");
+  try {
+    execSync("npx prisma generate", {
+      cwd: resolvePath(import.meta.dirname!, ".."),
+      env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL },
+      stdio: "pipe",
+    });
+    console.error("[mcp-cognition-engine] Prisma client generated successfully");
+  } catch (err) {
+    console.error("[mcp-cognition-engine] Failed to generate Prisma client:", String(err));
+    process.exit(1);
+  }
+}
 
 // Now import and run the full server (same as src/index.ts but with
 // DATABASE_URL already set)

@@ -1,11 +1,12 @@
 {
   "name": "mcp-cognition-engine",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.2",
   "description": "MCP Server for Cognition Engine & Trust Governance Layer — weighted graph traversal, AST constraint solving, and auditable injection approval for AI agents.",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
+    "postinstall": "npx prisma generate",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
     "db:generate": "prisma generate",
@@ -24,11 +25,11 @@
     "tree-sitter-javascript": "^0.25.0",
     "tree-sitter-python": "^0.25.0",
     "tree-sitter-typescript": "^0.23.2",
-    "web-tree-sitter": "^0.26.0"
+    "web-tree-sitter": "^0.26.0",
+    "prisma": "^5.22.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "prisma": "^5.22.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"

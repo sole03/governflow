@@ -18,6 +18,9 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, ListResourcesRequestSchema, ReadResourceRequestSchema, ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
+
+// Ensure DATABASE_URL is set before any Prisma client import
+process.env.DATABASE_URL = process.env.DATABASE_URL || "file:./mcp-cognition.db";
 import { getPrismaClient, disconnectPrisma } from "./storage/client.js";
 import { RuleRepo } from "./storage/rule-repo.js";
 import { DiffLogRepo } from "./storage/diff-log-repo.js";
@@ -94,3 +97,4 @@ async function main() {
 }
 
 main().catch((err) => { console.error("Fatal error:", err); process.exit(1); });
+

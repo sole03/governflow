@@ -2,6 +2,7 @@
 
 ![build](https://img.shields.io/badge/build-passing-brightgreen)
 ![coverage](https://img.shields.io/badge/coverage-95%25-brightgreen)
+![npm](https://img.shields.io/badge/npm-v1.0.0--alpha.2-orange)
 ![MCP](https://img.shields.io/badge/MCP_v1.29.0-compliant-blue)
 [![License](https://img.shields.io/badge/license-Apache_2.0-blue)](LICENSE)
 [![Trademark Policy](https://img.shields.io/badge/trademark-policy-orange)](TRADEMARK.md)
@@ -99,7 +100,7 @@ Add to \`.cursor/mcp.json\`:
   "mcpServers": {
     "cognition-engine": {
       "command": "node",
-      "args": ["dist/index.js"],
+      "args": ["dist/cli.js"],
       "env": { "DATABASE_URL": "file:./dev.db" }
     }
   }
@@ -115,7 +116,7 @@ Add to \`claude_desktop_config.json\`:
   "mcpServers": {
     "cognition-engine": {
       "command": "node",
-      "args": ["path/to/mcp-rule-engine/dist/index.js"],
+      "args": ["path/to/mcp-rule-engine/dist/cli.js"],
       "env": { "DATABASE_URL": "file:./dev.db" }
     }
   }
@@ -133,7 +134,7 @@ Add to your VS Code settings (User \`settings.json\` or workspace \`.vscode/mcp.
       "cognition-engine": {
         "type": "stdio",
         "command": "node",
-        "args": ["dist/index.js"],
+        "args": ["dist/cli.js"],
         "env": { "DATABASE_URL": "file:./dev.db" }
       }
     }
@@ -279,3 +280,4 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 Full license text: [LICENSE](LICENSE).
+
