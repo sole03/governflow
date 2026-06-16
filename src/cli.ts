@@ -55,9 +55,14 @@ function syncSchema(): void {
     return;
   }
 
-  console.error("[mcp-cognition-engine] Syncing database schema...");
+  const isProd = process.env.NODE_ENV === "production";
+  const command = isProd
+    ? "npx prisma migrate deploy"
+    : "npx prisma db push --skip-generate";
+
+  console.error("[mcp-cognition-engine] Syncing schema (" + (isProd ? "prod: migrate deploy" : "dev: db push") + ")...");
   try {
-    execSync("npx prisma db push --skip-generate --accept-data-loss", {
+    execSync(command, {
       env: { ...process.env, DATABASE_URL: process.env.DATABASE_URL },
       stdio: "pipe",
     });
@@ -65,7 +70,6 @@ function syncSchema(): void {
   } catch (err) {
     const errMsg = String(err);
     console.error("[mcp-cognition-engine] Schema sync warning:", errMsg.slice(0, 200));
-    // Don't fail startup — the server may still work if schema matches
   }
 }
 
@@ -108,3 +112,4 @@ import("./index.js").catch((err) => {
   console.error("Fatal error:", err);
   process.exit(1);
 });
+

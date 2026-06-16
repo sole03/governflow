@@ -1,0 +1,58 @@
+name: Performance Benchmarks
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "src/cognition-engine/**"
+      - "src/storage/cognition-repository.ts"
+      - "src/storage/cache.ts"
+      - "benchmarks/**"
+  push:
+    branches: [main]
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Initialize test database
+        run: npx prisma db push --skip-generate
+        env:
+          DATABASE_URL: "file:./prisma/bench.db"
+
+      - name: Run benchmarks
+        run: npm run bench
+        env:
+          DATABASE_URL: "file:./prisma/bench.db"
+
+      - name: Check benchmark regression
+        run: |
+          echo "Benchmark results:"
+          cat benchmarks/results/latest.md
+          echo ""
+          echo "⚠ No regression baseline configured — comparing is advisory only."
+          echo "To enable regression detection, commit a baseline to benchmarks/results/baseline.md"
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmarks/results/latest.md
+          retention-days: 30

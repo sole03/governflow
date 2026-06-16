@@ -69,3 +69,30 @@ The "Cognition Graph" name and associated logo are trademarks of the project aut
 Every `.ts` file must include the Apache 2.0 license header. Run `npm run license:check` before committing. Missing headers will be caught by CI.
 
 Thank you for helping make MCP Rule Engine better!
+
+
+## Database Migrations
+
+### Development
+Schema changes are automatically synced via `prisma db push` on MCP server startup.
+- Edit `prisma/schema.prisma`
+- Run `npm run db:push` to apply changes locally
+- The CLI auto-pushes on next start if NODE_ENV != production
+
+### Production
+Production deployments must use `prisma migrate deploy` for safe, versioned migrations.
+1. Create a migration: `npx prisma migrate dev --name <description>`
+2. Commit the generated `prisma/migrations/` directory
+3. Deploy with: `node scripts/migrate-prod.js` or set `NODE_ENV=production`
+4. The CLI automatically runs `migrate deploy` when `NODE_ENV=production`
+
+### Manual Production Migration
+```bash
+# Windows
+node scripts/migrate-prod.js
+
+# Linux/macOS
+DATABASE_URL="postgresql://..." npx prisma migrate deploy
+```
+
+> **Never use `db push` in production.** It skips migration history and can cause drift.
