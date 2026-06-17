@@ -3,15 +3,29 @@
  * Measures traverse() BFS latency across graph sizes.
  *
  * Usage: npx tsx benchmarks/graph-traverser.bench.ts
+ * Writes results to benchmarks/results/graph.md
  * Copyright 2026 熊高锐 — Apache 2.0
  */
 
+import { writeFileSync, mkdirSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { GraphTraverser } from "../src/core/graph-traverser.js";
 import { CognitionRepository, computeSemanticHash } from "../src/data/cognition-repository.js";
 import { COGNITION_TYPES, EDGE_RELATIONS } from "../src/data/cognition-types.js";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const RESULTS_DIR = join(__dirname, "results");
+mkdirSync(RESULTS_DIR, { recursive: true });
+const output: string[] = [];
+
 const repo = new CognitionRepository();
 const traverser = new GraphTraverser(repo);
+
+function log(s: string) {
+  console.log(s);
+  output.push(s);
+}
 
 async function buildChain(size: number): Promise<string> {
   const ids: string[] = [];
@@ -45,14 +59,14 @@ async function main() {
   process.env.DATABASE_URL = "file:./prisma/bench.db";
   await cleanBench();
 
-  console.log("# Graph Traversal Benchmarks\n");
+  log("# Graph Traversal Benchmarks\n");
   // Warmup
   const warmRoot = await buildChain(10);
   await traverser.traverse("typescript", "src/warm.ts", "", { maxDepth: 5 });
   await cleanBench();
 
-  console.log("| Graph Size | Depth | Ops/sec | Avg (ms) | P50 (ms) | P99 (ms) | Samples |");
-  console.log("|------------|-------|---------|----------|----------|----------|---------|");
+  log("| Graph Size | Depth | Ops/sec | Avg (ms) | P50 (ms) | P99 (ms) | Samples |");
+  log("|------------|-------|---------|----------|----------|----------|---------|");
 
   for (const size of [100]) {
     for (const depth of [3, 5]) {
@@ -72,11 +86,12 @@ async function main() {
       const p99 = samples[Math.floor(N * 0.99)];
       const opsSec = 1000 / avg;
 
-      console.log(`| ${size} | ${depth} | ${opsSec.toFixed(1)} | ${avg.toFixed(3)} | ${p50.toFixed(3)} | ${p99.toFixed(3)} | ${N} |`);
+      log(`| ${size} | ${depth} | ${opsSec.toFixed(1)} | ${avg.toFixed(3)} | ${p50.toFixed(3)} | ${p99.toFixed(3)} | ${N} |`);
       await cleanBench();
     }
   }
 }
 
-main().catch(console.error);
-
+main().then(() => {
+  writeFileSync(join(RESULTS_DIR, "graph.md"), output.join("\n") + "\n", "utf-8");
+}).catch(console.error);

@@ -3,10 +3,19 @@
  * Measures recognizeIntent() throughput and latency across diff sizes.
  *
  * Usage: npx tsx benchmarks/intent-recognizer.bench.ts
+ * Writes results to benchmarks/results/intent.md
  * Copyright 2026 熊高锐 — Apache 2.0
  */
 
 import { recognizeIntent } from "../src/core/intent-recognizer.js";
+import { writeFileSync, mkdirSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const RESULTS_DIR = join(__dirname, "results");
+mkdirSync(RESULTS_DIR, { recursive: true });
+const output: string[] = [];
 
 const DIFF_TEMPLATES = {
   small: "diff --git a/src/x.ts b/src/x.ts\n--- a/src/x.ts\n+++ b/src/x.ts\n@@ -1,3 +1,4 @@\n const a = 1;\n+const b = 2;\n",
@@ -22,10 +31,15 @@ const DIFF_TEMPLATES = {
   })(),
 };
 
+function log(s: string) {
+  console.log(s);
+  output.push(s);
+}
+
 async function main() {
-  console.log("# Intent Recognition Benchmarks\n");
-  console.log("| Dataset | Ops/sec | Avg (ms) | P50 (ms) | P99 (ms) | Samples |");
-  console.log("|---------|---------|----------|----------|----------|---------|");
+  log("# Intent Recognition Benchmarks\n");
+  log("| Dataset | Ops/sec | Avg (ms) | P50 (ms) | P99 (ms) | Samples |");
+  log("|---------|---------|----------|----------|----------|---------|");
 
   for (const [label, diff] of Object.entries(DIFF_TEMPLATES)) {
     const samples: number[] = [];
@@ -43,9 +57,10 @@ async function main() {
     const p99 = samples[Math.floor(N * 0.99)];
     const opsSec = 1000 / avg;
 
-    console.log(`| ${label} | ${opsSec.toFixed(1)} | ${avg.toFixed(3)} | ${p50.toFixed(3)} | ${p99.toFixed(3)} | ${N} |`);
+    log(`| ${label} | ${opsSec.toFixed(1)} | ${avg.toFixed(3)} | ${p50.toFixed(3)} | ${p99.toFixed(3)} | ${N} |`);
   }
 }
 
-main().catch(console.error);
-
+main().then(() => {
+  writeFileSync(join(RESULTS_DIR, "intent.md"), output.join("\n") + "\n", "utf-8");
+}).catch(console.error);

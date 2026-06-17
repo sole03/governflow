@@ -21,3 +21,5 @@ SPRINT_CHECKLIST.md
 
 # Codex local agent config
 .codex/
+
+benchmarks/results/
