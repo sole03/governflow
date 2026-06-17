@@ -49,7 +49,7 @@ function resolveDbUrl(): string {
 // If DATABASE_URL was set externally (e.g., MCP config), it stays.
 
 function syncSchema(): void {
-  const prismaSchema = join(import.meta.dirname!, "..", "prisma", "schema.prisma");
+  const prismaSchema = join(import.meta.dirname!, "..", "..", "prisma", "schema.prisma");
   if (!existsSync(prismaSchema)) {
     console.error("Warning: prisma/schema.prisma not found — skipping schema sync");
     return;
