@@ -54,11 +54,11 @@
   "publishConfig": null,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sole03/mcp-rule-engine.git",
+    "url": "git+https://github.com/sole03/governflow.git",
     "directory": "packages/core"
   },
   "bugs": {
-    "url": "https://github.com/sole03/mcp-rule-engine/issues"
+    "url": "https://github.com/sole03/governflow/issues"
   },
-  "homepage": "https://github.com/sole03/mcp-rule-engine/tree/main/packages/core"
+  "homepage": "https://github.com/sole03/governflow/tree/main/packages/core"
 }

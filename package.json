@@ -44,12 +44,12 @@
   "author": "熊高锐",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sole03/mcp-rule-engine.git"
+    "url": "git+https://github.com/sole03/governflow.git"
   },
   "bugs": {
-    "url": "https://github.com/sole03/mcp-rule-engine/issues"
+    "url": "https://github.com/sole03/governflow/issues"
   },
-  "homepage": "https://github.com/sole03/mcp-rule-engine#readme",
+  "homepage": "https://github.com/sole03/governflow#readme",
   "bin": {
     "governflow": "dist/transport/cli.js"
   },
@@ -92,3 +92,4 @@
     "packages/*"
   ]
 }
+

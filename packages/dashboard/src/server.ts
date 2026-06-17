@@ -37,10 +37,6 @@ import { MetricsCollector, DEFAULT_ALERT_RULES } from "../../core/src/dashboard/
 
 const PORT = parseInt(process.env.DASHBOARD_PORT ?? "4000", 10);
 
-// ── HTML Dashboard ──
-
-const DASHBOARD_HTML = getDashboardHTML();
-
 // ── Server ──
 
 async function main() {
@@ -110,7 +106,7 @@ async function main() {
   const shutdown = async () => {
     console.error("[dashboard] shutting down...");
     server.close();
-    await prisma.();
+    await prisma.$disconnect();
     process.exit(0);
   };
   process.on("SIGINT", shutdown);
@@ -124,8 +120,7 @@ main().catch((err) => {
 
 // ── HTML Template ──
 
-function getDashboardHTML(): string {
-  return <!DOCTYPE html>
+const DASHBOARD_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -134,131 +129,143 @@ function getDashboardHTML(): string {
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e1e4e8;min-height:100vh}
+body{font-family:"Segoe UI",system-ui,sans-serif;background:#0f1117;color:#e1e4e8;min-height:100vh}
 .header{background:#161b22;border-bottom:1px solid #30363d;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
 .header h1{font-size:20px;font-weight:600;color:#58a6ff}
 .header .status{display:flex;gap:12px;align-items:center}
 .status-dot{width:10px;height:10px;border-radius:50%}
-.status-dot.ok{background:#3fb950;box-shadow:0 0 8px #3fb950}
-.status-dot.warn{background:#d29922;box-shadow:0 0 8px #d29922}
-.status-dot.crit{background:#f85149;box-shadow:0 0 8px #f85149;animation:pulse 1s infinite}
+.status-dot.ok{background:#3fb950;box-shadow:0 0 6px #3fb950}
+.status-dot.warn{background:#d29922;box-shadow:0 0 6px #d29922}
+.status-dot.crit{background:#f85149;box-shadow:0 0 6px #f85149;animation:pulse 1s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;padding:16px 24px}
-.panel{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px}
-.panel h2{font-size:14px;font-weight:600;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}
-.panel .stat-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px}
-.panel .stat-row .label{color:#8b949e}
-.panel .stat-row .value{color:#e1e4e8;font-weight:500}
-.panel canvas{max-height:200px}
-.timeline{grid-column:span 2;max-height:300px;overflow-y:auto}
-.timeline .event{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;font-family:monospace;border-bottom:1px solid #21262d}
-.timeline .event .time{color:#484f58;min-width:80px}
-.timeline .event .type{padding:1px 5px;border-radius:3px;font-size:11px}
-.type-amygdala{background:#f8514920;color:#f85149}
-.type-self_heal{background:#3fb95020;color:#3fb950}
-.type-arbitration{background:#a371f720;color:#a371f7}
-.type-governance{background:#58a6ff20;color:#58a6ff}
-.type-cognition{background:#d2992220;color:#d29922}
-.type-default{background:#30363d;color:#8b949e}
-.alerts-panel{grid-column:span 2;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px}
-.alerts-panel h2{font-size:14px;font-weight:600;color:#f85149;text-transform:uppercase;margin-bottom:8px}
-.alert-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:4px;margin-bottom:4px;font-size:13px}
-.alert-CRITICAL{background:#f8514920;border-left:3px solid #f85149}
-.alert-WARN{background:#d2992220;border-left:3px solid #d29922}
-.alert-INFO{background:#58a6ff20;border-left:3px solid #58a6ff}
-.refresh{color:#8b949e;font-size:12px}
-.loading{display:flex;align-items:center;justify-content:center;height:200px;color:#8b949e}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;padding:16px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px}
+.card h2{font-size:14px;font-weight:600;color:#8b949e;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px}
+.stat-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px}
+.stat-row .label{color:#8b949e}
+.stat-row .value{color:#e1e4e8;font-weight:600;font-variant-numeric:tabular-nums}
+.chart-wrap{height:180px;margin-top:8px}
+.chart-wrap-sm{height:140px;margin-top:8px}
+.alerts{margin-top:12px}
+.alert{padding:6px 10px;border-radius:4px;font-size:12px;margin-bottom:4px;display:flex;justify-content:space-between}
+.alert.INFO{background:#1c2a3a;border-left:3px solid #58a6ff}
+.alert.WARN{background:#2a2410;border-left:3px solid #d29922}
+.alert.CRITICAL{background:#2a1018;border-left:3px solid #f85149}
+.timeline-section{grid-column:1/-1}
+.timeline{max-height:200px;overflow-y:auto;font-size:12px}
+.event{display:flex;gap:12px;padding:3px 0;border-bottom:1px solid #21262d;align-items:center}
+.event .time{color:#484f58;white-space:nowrap;min-width:70px}
+.event .type{padding:1px 6px;border-radius:3px;font-size:11px;white-space:nowrap}
+.type-amygdala{background:#3f1a2e;color:#f85149}
+.type-self_heal{background:#1a3a2a;color:#3fb950}
+.type-arbitration{background:#2a2410;color:#d29922}
+.type-governance{background:#1c2a3a;color:#58a6ff}
+.type-cognition{background:#2a1a3a;color:#a371f7}
+.type-default{background:#21262d;color:#8b949e}
+footer{text-align:center;padding:12px;color:#484f58;font-size:11px}
 </style>
 </head>
 <body>
 <div class="header">
-  <h1>🧠 Cognition Dashboard</h1>
+  <h1>Cognition Dashboard</h1>
   <div class="status">
-    <span id="fatigueLabel" class="status-dot ok" title="Fatigue Level"></span>
-    <span id="alertBadge" style="color:#8b949e;font-size:12px"></span>
-    <span class="refresh" id="refreshTime">--</span>
+    <span style="font-size:12px;color:#8b949e">Amygdala Fatigue:</span>
+    <span id="fatigueLabel" class="status-dot ok" title="Fatigue: NORMAL"></span>
   </div>
 </div>
-
-<div id="alertsContainer" class="alerts-panel" style="margin:0 24px"></div>
 
 <div class="grid">
-  <div class="panel" id="amygdalaPanel">
-    <h2>⚡ Amygdala Intuition</h2>
-    <div id="amygdalaStats"></div>
-    <canvas id="amygdalaChart"></canvas>
-  </div>
-  <div class="panel" id="selfHealPanel">
-    <h2>🔧 Self-Heal (Cerebellum)</h2>
-    <div id="selfHealStats"></div>
-    <canvas id="selfHealChart"></canvas>
-  </div>
-  <div class="panel" id="arbitrationPanel">
-    <h2>⚖️ Arbitration (Prefrontal)</h2>
-    <div id="arbitrationStats"></div>
-    <canvas id="arbitrationChart"></canvas>
-  </div>
-  <div class="panel" id="cognitionPanel">
-    <h2>🧩 Cognition Graph</h2>
+  <div class="card">
+    <h2>Cognition Graph</h2>
     <div id="cognitionStats"></div>
-    <canvas id="cognitionChart"></canvas>
+    <div class="chart-wrap"><canvas id="cognitionChart"></canvas></div>
   </div>
-  <div class="timeline panel" id="timelinePanel">
-    <h2>📜 Audit Timeline</h2>
-    <div id="timeline"></div>
+
+  <div class="card">
+    <h2>Amygdala Risk Monitor</h2>
+    <div id="amygdalaStats"></div>
+    <div class="chart-wrap-sm"><canvas id="amygdalaChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h2>Self-Heal Loop</h2>
+    <div id="selfHealStats"></div>
+    <div class="chart-wrap-sm"><canvas id="selfHealChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h2>Arbitration</h2>
+    <div id="arbitrationStats"></div>
+    <div class="chart-wrap-sm"><canvas id="arbitrationChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h2>Governance</h2>
+    <div id="governanceStats"></div>
+  </div>
+
+  <div class="card">
+    <h2>Active Alerts</h2>
+    <div id="alerts" class="alerts"></div>
+  </div>
+
+  <div class="card timeline-section">
+    <h2>Recent Events</h2>
+    <div id="timeline" class="timeline"></div>
   </div>
 </div>
 
+<footer>GovernFlow Cognition Dashboard · Auto-refresh 10s</footer>
+
 <script>
-let charts = {};
+const charts = {};
 
 async function refresh() {
   try {
     const res = await fetch("/api/snapshot");
     const snap = await res.json();
-    renderSnapshot(snap);
-    document.getElementById("refreshTime").textContent = new Date().toLocaleTimeString();
-  } catch(e) {
-    console.error("Dashboard fetch error:", e);
-  }
-}
-
-function renderSnapshot(snap) {
-  renderAlerts(snap.alerts);
-  renderAmygdala(snap.amygdala);
-  renderSelfHeal(snap.selfHeal);
-  renderArbitration(snap.arbitration);
-  renderCognition(snap.cognition);
-  updateStatus(snap);
+    renderCognition(snap.cognition);
+    renderAmygdala(snap.amygdala);
+    renderSelfHeal(snap.selfHeal);
+    renderArbitration(snap.arbitration);
+    renderGovernance(snap.governance);
+    renderAlerts(snap.alerts);
+    updateStatus(snap);
+  } catch(e) { console.error("refresh error:", e); }
   fetchTimeline();
 }
 
-function renderAlerts(alerts) {
-  const container = document.getElementById("alertsContainer");
-  if (!alerts || alerts.length === 0) {
-    container.innerHTML = "";
-    container.style.display = "none";
-    return;
-  }
-  container.style.display = "block";
-  container.innerHTML = "<h2>🔔 Active Alerts</h2>" +
-    alerts.map(a => '<div class="alert-item alert-' + a.severity + '"><strong>[' + a.severity + ']</strong> ' + a.message + ' <span style="margin-left:auto;color:#8b949e">' + a.currentValue + '</span></div>').join("");
-  document.getElementById("alertBadge").textContent = alerts.length + " alerts";
-  document.getElementById("alertBadge").style.color = alerts.some(a=>a.severity==="CRITICAL") ? "#f85149" : "#d29922";
+function renderCognition(c) {
+  document.getElementById("cognitionStats").innerHTML =
+    '<div class="stat-row"><span class="label">Nodes</span><span class="value">' + c.nodeCount + '</span></div>' +
+    '<div class="stat-row"><span class="label">Edges</span><span class="value">' + c.edgeCount + '</span></div>' +
+    '<div class="stat-row"><span class="label">Embedded</span><span class="value">' + (c.embeddedNodeRatio*100).toFixed(0) + '%</span></div>' +
+    '<div class="stat-row"><span class="label">Avg Traversal</span><span class="value">' + c.avgTraversalMs + 'ms</span></div>';
+  const ctx = document.getElementById("cognitionChart").getContext("2d");
+  if (charts.cognition) charts.cognition.destroy();
+  const intents = c.topIntentDistribution || [];
+  charts.cognition = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: intents.map(i=>i.intent),
+      datasets: [{ data:intents.map(i=>i.count), backgroundColor:["#58a6ff","#3fb950","#d29922","#a371f7","#f85149"] }]
+    },
+    options: { plugins:{legend:{display:false}} }
+  });
 }
 
 function renderAmygdala(a) {
   document.getElementById("amygdalaStats").innerHTML =
-    '<div class="stat-row"><span class="label">24h Triggers</span><span class="value">' + a.triggeredCount24h + '</span></div>' +
-    '<div class="stat-row"><span class="label">Avg Risk Score</span><span class="value">' + a.avgRiskScore.toFixed(2) + '</span></div>' +
-    '<div class="stat-row"><span class="label">Fatigue Level</span><span class="value" style="color:' + (a.fatigueLevel==="CRITICAL"?"#f85149":a.fatigueLevel==="ELEVATED"?"#d29922":"#3fb950") + '">' + a.fatigueLevel + '</span></div>';
+    '<div class="stat-row"><span class="label">Triggered (24h)</span><span class="value">' + a.triggeredCount24h + '</span></div>' +
+    '<div class="stat-row"><span class="label">Avg Risk Score</span><span class="value">' + (a.avgRiskScore*100).toFixed(0) + '%</span></div>' +
+    '<div class="stat-row"><span class="label">Fatigue</span><span class="value" style="color:' + (a.fatigueLevel==="CRITICAL"?"#f85149":a.fatigueLevel==="ELEVATED"?"#d29922":"#3fb950") + '">' + a.fatigueLevel + '</span></div>';
+  const triggers = a.recentTriggers || [];
   const ctx = document.getElementById("amygdalaChart").getContext("2d");
   if (charts.amygdala) charts.amygdala.destroy();
-  const triggers = a.recentTriggers || [];
   charts.amygdala = new Chart(ctx, {
     type: "line",
     data: {
-      labels: triggers.map(t => new Date(t.timestamp).toLocaleTimeString()),
+      labels: triggers.map((_,i)=>i+1),
       datasets: [{ label:"Risk Score", data:triggers.map(t=>t.riskScore), borderColor:"#f85149", tension:.3, pointRadius:2 }]
     },
     options: { plugins:{legend:{display:false}}, scales:{x:{display:false},y:{min:0,max:1}} }
@@ -301,23 +308,19 @@ function renderArbitration(a) {
   });
 }
 
-function renderCognition(c) {
-  document.getElementById("cognitionStats").innerHTML =
-    '<div class="stat-row"><span class="label">Nodes</span><span class="value">' + c.nodeCount + '</span></div>' +
-    '<div class="stat-row"><span class="label">Edges</span><span class="value">' + c.edgeCount + '</span></div>' +
-    '<div class="stat-row"><span class="label">Embedded</span><span class="value">' + (c.embeddedNodeRatio*100).toFixed(0) + '%</span></div>' +
-    '<div class="stat-row"><span class="label">Avg Traversal</span><span class="value">' + c.avgTraversalMs + 'ms</span></div>';
-  const ctx = document.getElementById("cognitionChart").getContext("2d");
-  if (charts.cognition) charts.cognition.destroy();
-  const intents = c.topIntentDistribution || [];
-  charts.cognition = new Chart(ctx, {
-    type: "bar",
-    data: {
-      labels: intents.map(i=>i.intent),
-      datasets: [{ data:intents.map(i=>i.count), backgroundColor:["#58a6ff","#3fb950","#d29922","#a371f7","#f85149"] }]
-    },
-    options: { plugins:{legend:{display:false}} }
-  });
+function renderGovernance(g) {
+  document.getElementById("governanceStats").innerHTML =
+    '<div class="stat-row"><span class="label">Active Rules</span><span class="value">' + g.activeRuleCount + '</span></div>' +
+    '<div class="stat-row"><span class="label">Pending Proposals</span><span class="value">' + g.pendingProposalCount + '</span></div>' +
+    '<div class="stat-row"><span class="label">Approval Rate</span><span class="value">' + (g.approvalRate*100).toFixed(0) + '%</span></div>' +
+    '<div class="stat-row"><span class="label">Rejection Rate</span><span class="value">' + (g.rejectionRate*100).toFixed(0) + '%</span></div>' +
+    '<div class="stat-row"><span class="label">Conflict Locked</span><span class="value" style="color:' + (g.immuneStats?.conflictLocked?"#f85149":"#3fb950") + '">' + (g.immuneStats?.conflictLocked?"YES":"NO") + '</span></div>';
+}
+
+function renderAlerts(alerts) {
+  document.getElementById("alerts").innerHTML = (alerts||[]).map(a =>
+    '<div class="alert ' + a.severity + '"><span>' + a.metric + ': ' + a.message + '</span><span>' + a.currentValue + ' / ' + a.threshold + '</span></div>'
+  ).join("") || '<div style="color:#3fb950;font-size:12px">No active alerts</div>';
 }
 
 function updateStatus(snap) {
@@ -345,5 +348,4 @@ refresh();
 setInterval(refresh, 10000);
 </script>
 </body>
-</html>;
-}
+</html>`;
