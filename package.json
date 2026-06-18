@@ -20,7 +20,8 @@
     "start:http": "node dist/transport/http-server.js",
     "build:core": "cd packages/core && npx tsc",
     "build:all": "npm run build && npm run build:core",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "pack": "node scripts/pack-from-subdir.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

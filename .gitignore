@@ -16,6 +16,7 @@ prisma/prisma/
 
 # Temp directories
 test-pack/
+.pkg-work/
 
 *.tgz
 
