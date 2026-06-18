@@ -227,6 +227,12 @@ async function main() {
   const port = parseInt(process.env.PORT ?? "3000", 10);
   const host = process.env.HOST ?? "127.0.0.1";
 
+  // Create transport once and connect during startup
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: () => randomUUID(),
+  });
+  await server.connect(transport);
+
   const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
     // Health check
     if (req.url === "/health" && req.method === "GET") {
@@ -246,12 +252,6 @@ async function main() {
       return;
     }
 
-    // Create a new transport per request (stateless)
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => randomUUID(),
-    });
-
-    await server.connect(transport);
     await transport.handleRequest(req, res);
   });
 
