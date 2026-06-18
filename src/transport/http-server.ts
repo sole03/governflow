@@ -46,10 +46,11 @@ import { handleApproveInjection } from "./mcp/injection-approval.js";
 import { handleUpdateConfig } from "./mcp/config-tools.js";
 import { handleWorkflowSubmit, handleWorkflowVote, handleWorkflowStatus, handleWorkflowEscalate } from "./mcp/workflow-tools.js";
 import { handleImmuneCycle, handleImmuneStats } from "./mcp/immune-tools.js";
+import { handlePauseArbitrator, handleRollbackArbitration } from "./mcp/governance-veto.js";
 import type { IRuleRepository, IDiffLogRepository, IConflictRepository, IMetricRepository } from "../data/repository-interfaces.js";
 import { handleReadResource } from "./cognition-resources.js"
 import { RESOURCES } from "./cognition-resources.js";
-import { validateInput, AnalyzeWorkspaceSchema, CaptureDiffSchema, QueryRulesSchema, ConfirmRuleSchema, ResolveConflictSchema, ListRulesSchema, CognitionQuerySchema, CognitionValidateSchema, CognitionFeedbackSchema, ApproveInjectionSchema, UpdateConfigSchema } from "../adapters/schemas.js";
+import { validateInput, AnalyzeWorkspaceSchema, CaptureDiffSchema, QueryRulesSchema, ConfirmRuleSchema, ResolveConflictSchema, ListRulesSchema, CognitionQuerySchema, CognitionValidateSchema, CognitionFeedbackSchema, ApproveInjectionSchema, UpdateConfigSchema, GovernancePauseSchema, GovernanceRollbackSchema } from "../adapters/schemas.js";
 import { getPolicyEngine } from "../governance/policy-engine.js"
 import { DEFAULT_POLICIES } from "../governance/default-policies.js";
 import type { PolicyEvalContext } from "../governance/governance-types.js";
@@ -116,12 +117,14 @@ const TOOLS = [
   { name: "cognition_validate", description: "Validate code against cognition AST templates", inputSchema: { type: "object", properties: { nodeId: { type: "string" }, targetFileContent: { type: "string" } }, required: ["nodeId", "targetFileContent"] } },
   { name: "cognition_feedback", description: "Submit feedback to refine cognition graph weights", inputSchema: { type: "object", properties: { nodeId: { type: "string" }, edgeId: { type: "string" }, outcome: { type: "string", enum: ["ACCEPTED", "REJECTED", "MODIFIED"] }, comment: { type: "string" } }, required: ["nodeId", "outcome"] } },
   { name: "cognition_approve_injection", description: "Approve or reject an injection proposal", inputSchema: { type: "object", properties: { proposalId: { type: "string" }, decision: { type: "string", enum: ["APPROVE", "REJECT", "OVERRIDE"] } }, required: ["proposalId", "decision"] } },
-  { name: "cognition_update_config", description: "Update cognition engine configuration", inputSchema: { type: "object", properties: { key: { type: "string" }, value: { type: "string" } }, required: ["key", "value"] } },
+  { name: "cognition_update_config", description: "Update cognition engine configuration (requires expertMode: true)", inputSchema: { type: "object", properties: { key: { type: "string" }, value: { type: "number" }, expertMode: { type: "boolean" } }, required: ["key", "value"] } },
   { name: "workflow_submit", description: "Submit a proposal for multi-reviewer approval workflow", inputSchema: { type: "object", properties: { proposalId: { type: "string" }, config: { type: "object", properties: { reviewStrategy: { type: "string", enum: ["ANY", "ALL", "QUORUM"] }, quorumSize: { type: "number" }, reviewers: { type: "array", items: { type: "string" } }, fallbackReviewer: { type: "string" }, ttlMs: { type: "number" }, autoRejectOnTimeout: { type: "boolean" }, webhooks: { type: "array", items: { type: "string" } }, metadata: { type: "object" } }, required: ["reviewers", "ttlMs"] } }, required: ["proposalId", "config"] } },
   { name: "workflow_vote", description: "Cast a vote on a pending approval request", inputSchema: { type: "object", properties: { approvalId: { type: "string" }, reviewerId: { type: "string" }, decision: { type: "string", enum: ["APPROVED", "REJECTED"] }, comment: { type: "string" } }, required: ["approvalId", "reviewerId", "decision"] } },
   { name: "workflow_status", description: "Get approval request status or list pending for reviewer", inputSchema: { type: "object", properties: { approvalId: { type: "string" }, reviewerId: { type: "string" } } } },
   { name: "immune_cycle", description: "Run a full rule immune cycle: auto-renew, archive, revive, conflict check", inputSchema: { type: "object", properties: {} } },
   { name: "immune_stats", description: "Get rule immune system health stats", inputSchema: { type: "object", properties: {} } },
+  { name: "governance_pause_arbitrator", description: "Pause the constraint arbitrator for N minutes (1-1440)", inputSchema: { type: "object", properties: { minutes: { type: "number", minimum: 1, maximum: 1440 } }, required: ["minutes"] } },
+  { name: "governance_rollback_arbitration", description: "Rollback auto-resolved conflicts since a given ISO datetime", inputSchema: { type: "object", properties: { since: { type: "string" } }, required: ["since"] } },
   { name: "workflow_escalate", description: "Escalate a timed-out approval request", inputSchema: { type: "object", properties: { approvalId: { type: "string" } }, required: ["approvalId"] } },
 ];
 
@@ -176,6 +179,8 @@ async function dispatchTool(name: string, args: Record<string, unknown> | undefi
     case "workflow_submit": return await handleWorkflowSubmit(args as any);
     case "workflow_vote": return await handleWorkflowVote(args as any);
     case "workflow_status": return await handleWorkflowStatus(args as any);
+    case "governance_pause_arbitrator": { const v = validateInput(GovernancePauseSchema, args, name); if (!v.success) return v.error; return await handlePauseArbitrator(v.data as any); }
+    case "governance_rollback_arbitration": { const v = validateInput(GovernanceRollbackSchema, args, name); if (!v.success) return v.error; return await handleRollbackArbitration(v.data as any); }
     case "workflow_escalate": return await handleWorkflowEscalate(args as any);
     case "immune_cycle": return await handleImmuneCycle(core);
     case "immune_stats": return await handleImmuneStats(core);
