@@ -58,10 +58,11 @@ describe("RuleRepo — Batch Transaction", () => {
     expect(rules[2].scope).toBe("global");
   });
 
-  it("should be idempotent — repeated call creates separate entries", async () => {
+  it("should reject duplicate rules via @@unique constraint", async () => {
     const spec: RuleSpec & { projectId?: string } = { type: "replace", pattern: "idempotent", suggestion: "test", language: "typescript" };
     const r1 = await repo.batchCreate([spec]);
-    const r2 = await repo.batchCreate([spec]);
-    expect(r1[0].id).not.toBe(r2[0].id); // Different UUIDs
+    expect(r1).toHaveLength(1);
+    // Second call with same spec must throw (unique constraint)
+    await expect(repo.batchCreate([spec])).rejects.toThrow();
   });
 });

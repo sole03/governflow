@@ -52,30 +52,37 @@ async function upsertCognitionClosure(
   try {
     const repo = new CognitionRepository();
 
-    // ── PATTERN node (existing logic) ──
-    const existing = await repo.findNodesBySemanticHash(modifiedHash);
-    const patternPayload = {
-      filePath,
-      language,
-      projectId: projectId ?? null,
-      diffOpCount,
-      ruleGenerated,
-      diffStatus,
-      lastSeen: new Date().toISOString(),
-    };
-    const patternMeta = {
-      source: "capture_diff",
-      diffRetentionDays: RULE_GENERATION_THRESHOLDS.repeatWindowDays,
-      occurrences: (existing?.[0]?.metadata as any)?.occurrences
-        ? (existing![0].metadata as any).occurrences + 1 : 1,
-    };
-    const patternNode = await repo.createNodeWithEdges({
-      type: "PATTERN",
-      semanticHash: modifiedHash,
-      abstractionLevel: 0,
-      payload: patternPayload,
-      metadata: patternMeta,
-    });
+    // ── PATTERN node (TOCTOU-hardened via DB unique constraint) ──
+    let patternNode: any;
+    try {
+      const existing = await repo.findNodesBySemanticHash(modifiedHash);
+      const patternPayload = {
+        filePath,
+        language,
+        projectId: projectId ?? null,
+        diffOpCount,
+        ruleGenerated,
+        diffStatus,
+        lastSeen: new Date().toISOString(),
+      };
+      const patternMeta = {
+        source: "capture_diff",
+        diffRetentionDays: RULE_GENERATION_THRESHOLDS.repeatWindowDays,
+        occurrences: (existing?.[0]?.metadata as any)?.occurrences
+          ? (existing![0].metadata as any).occurrences + 1 : 1,
+      };
+      patternNode = await repo.createNodeWithEdges({
+        type: "PATTERN",
+        semanticHash: modifiedHash,
+        abstractionLevel: 0,
+        payload: patternPayload,
+        metadata: patternMeta,
+      });
+    } catch {
+      // Duplicate key (concurrent insert) — re-fetch and use existing node
+      const existing2 = await repo.findNodesBySemanticHash(modifiedHash);
+      patternNode = existing2?.[0];
+    }
 
     // ── INTENT node ──
     // Build a minimal unified diff for intent recognition

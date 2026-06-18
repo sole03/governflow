@@ -68,6 +68,7 @@ export class ApprovalWorkflowService {
     const row = await prisma.approvalRequest.findUnique({ where: { id: approvalId } });
     if (!row) throw new Error("Approval request not found");
     if (row.stage !== "PENDING_REVIEW") throw new Error("Not in review: " + row.stage);
+    const readVersion = row.version ?? 0;
     const votes: ReviewerVote[] = JSON.parse(row.votesJson);
     const config: ApprovalConfig = JSON.parse(row.configJson);
     const idx = votes.findIndex(v => v.reviewerId === reviewerId);
@@ -76,10 +77,11 @@ export class ApprovalWorkflowService {
     votes[idx] = { reviewerId, decision, comment: comment ?? null, votedAt: new Date() };
     const newStage = this.computeStage(votes, config);
     const now = new Date();
-    const updateData: any = { votesJson: JSON.stringify(votes), stage: newStage, updatedAt: now };
+    const updateData: any = { votesJson: JSON.stringify(votes), stage: newStage, version: readVersion + 1, updatedAt: now };
     if (newStage !== "PENDING_REVIEW") { updateData.resolvedAt = now; updateData.assignedTo = null; }
     else { const next = votes.find(v => v.decision === "PENDING"); updateData.assignedTo = next?.reviewerId ?? null; }
-    const updated = await prisma.approvalRequest.update({ where: { id: approvalId }, data: updateData });
+    // Optimistic concurrency: only update if version hasn't changed
+    const updated = await prisma.approvalRequest.update({ where: { id: approvalId, version: readVersion }, data: updateData });
     logger.info({ approvalId, reviewerId, decision, newStage }, "vote cast");
     if (newStage !== "PENDING_REVIEW") await this.dispatchWebhooks(approvalId, newStage);
     return toApprovalRequest(updated);
