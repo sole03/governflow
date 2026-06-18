@@ -130,6 +130,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       inputSchema: { type: "object", properties: { proposalId: { type: "string" }, decision: { type: "string", enum: ["APPROVE", "REJECT", "OVERRIDE"] } }, required: ["proposalId", "decision"] } },
     { name: "cognition_update_config", description: "Update server configuration",
       inputSchema: { type: "object", properties: { mode: { type: "string", enum: ["silent", "confirm"] }, data: { type: "object" } } } },
+    { name: "governance_pause_arbitrator", description: "Pause the automatic constraint arbitrator for N minutes",
+      inputSchema: { type: "object", properties: { minutes: { type: "number", minimum: 1, maximum: 1440 } }, required: ["minutes"] } },
+    { name: "governance_rollback_arbitration", description: "Rollback auto-resolved conflicts since an ISO datetime",
+      inputSchema: { type: "object", properties: { since: { type: "string" } }, required: ["since"] } },
   ],
 }));
 
