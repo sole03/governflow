@@ -83,11 +83,15 @@ export const ListRulesSchema = z.object({
 export const CognitionQuerySchema = z.object({
   contextHash: z.string().optional(),
   semanticHash: z.string().optional(),
+  filePath: z.string().optional(),
+  language: z.string().optional(),
+  nodeType: z.enum(["INTENT", "PATTERN", "CONSTRAINT", "HEURISTIC"]).optional(),
   intentHint: z.enum(["REFACTOR", "BUGFIX", "BOILERPLATE"]).optional(),
   maxDepth: z.number().int().positive().optional(),
+  limit: z.number().int().positive().optional(),
 }).refine(
-  (data) => data.contextHash || data.semanticHash,
-  { message: "Either contextHash or semanticHash is required" },
+  (data) => data.contextHash || data.semanticHash || data.filePath || data.language || data.nodeType,
+  { message: "At least one query criterion is required: contextHash, semanticHash, filePath, language, or nodeType" },
 );
 
 export const CognitionValidateSchema = z.object({

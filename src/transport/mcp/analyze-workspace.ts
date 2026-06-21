@@ -24,9 +24,15 @@ import { evaluateRuleCandidate } from "../../analysis/rule-generator.js";
 import { detectConflict } from "../../governance/arbitrator.js";
 import { AnalyzeResult, SKIP_PATTERNS } from "../../core/types.js"
 import { CognitionRepository } from "../../data/cognition-repository.js";
+import { recognizeIntent } from "../../core/intent-recognizer.js";
 import { AnalyzeWorkspaceInput, Rule, RuleSpec, RuleConfidence, RULE_GENERATION_THRESHOLDS } from "../../core/types.js";
 
 function normalizePath(p: string): string { return p.replace(/\\/g, "/"); }
+function simpleHash(s: string): string {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; }
+  return h.toString(16);
+}
 
 function isSkipped(filePath: string): boolean {
   return SKIP_PATTERNS.some(pat => pat.test(normalizePath(filePath)));
@@ -146,12 +152,13 @@ export async function handleAnalyzeWorkspace(
         result.generatedRules.push({ rule: evalR.ruleCandidate, filePath: fp });
       }
 
-      // Persist PATTERN cognition node for each file diff
+      // Persist full cognition closure (PATTERN + INTENT + CAUSES edge) — awaited
       try {
-        var cog2 = new CognitionRepository();
-        cog2.createNodeWithEdges({
+        const cog2 = new CognitionRepository();
+        const contentHash = simpleHash(modified);
+        const patternNode = await cog2.findOrCreateNode({
           type: "PATTERN",
-          semanticHash: modHash,
+          semanticHash: contentHash,
           abstractionLevel: 0,
           payload: {
             filePath: fp, language: lang,
@@ -162,8 +169,39 @@ export async function handleAnalyzeWorkspace(
             lastSeen: new Date().toISOString(),
           },
           metadata: { source: "analyze_workspace", baseCommit: input.baseCommit },
-        }).catch(function(){});
-      } catch (e) { /* best-effort */ }
+        });
+
+        // Intent node — build pseudo-diff for recognition
+        const diffLines = modified.split("\n");
+        const diffText = [
+          "diff --git a/" + fp + " b/" + fp,
+          "@@ -0,0 +" + diffLines.length + " @@",
+          ...diffLines.map((l: string) => "+" + l),
+        ].join("\n");
+        const intentResult = await recognizeIntent(diffText, fp);
+        const intentHash = simpleHash(fp + ":" + intentResult.intent + ":" + contentHash);
+        const intentNode = await cog2.findOrCreateNode({
+          type: "INTENT",
+          semanticHash: intentHash,
+          abstractionLevel: 1,
+          payload: {
+            filePath: fp, language: lang, intent: intentResult.intent,
+            confidence: intentResult.confidence, reasoning: intentResult.reasoning,
+            lastSeen: new Date().toISOString(),
+          },
+          metadata: { source: "analyze_workspace", confidence: intentResult.confidence },
+        });
+
+        try {
+          await cog2.createEdge({
+            sourceId: intentNode.id, targetId: patternNode.id,
+            relation: "CAUSES", weight: intentResult.confidence,
+            metadata: { source: "analyze_workspace", intent: intentResult.intent },
+          });
+        } catch (e: any) {
+          if (e?.code !== 'P2002') throw e; // ignore duplicate edge
+        }
+      } catch (e) { warnings.push("cognition-graph " + fp + ": " + String(e)); }
 
       result.analyzedFiles++;
     } catch (err) {

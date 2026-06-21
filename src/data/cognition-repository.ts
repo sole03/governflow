@@ -134,36 +134,55 @@ export class CognitionRepository implements ICognitionRepository {
     const payloadStr = JSON.stringify(nodeInput.payload);
     const metadataStr = nodeInput.metadata ? JSON.stringify(nodeInput.metadata) : null;
 
-    return prisma.$transaction(async (tx) => {
-      const node = await tx.cognitionNode.create({
-        data: {
-          type: nodeInput.type,
-          semanticHash: nodeInput.semanticHash,
-          abstractionLevel: nodeInput.abstractionLevel,
-          payload: payloadStr,
-          metadata: metadataStr,
-        },
-      });
-
-      if (edgeInputs.length > 0) {
-        await tx.cognitionEdge.createMany({
-          data: edgeInputs.map((e) => ({
-            sourceId: e.sourceId,
-            targetId: e.targetId,
-            relation: e.relation,
-            weight: e.weight ?? 1.0,
-            metadata: e.metadata ? JSON.stringify(e.metadata) : null,
-          })),
-        });
-      }
-
-      const withTemplate = await tx.cognitionNode.findUnique({
-        where: { id: node.id },
-        include: { astTemplate: true },
-      });
-
-      return toCognitionNode(withTemplate!);
+    const created = await prisma.cognitionNode.create({
+      data: {
+        type: nodeInput.type,
+        semanticHash: nodeInput.semanticHash,
+        abstractionLevel: nodeInput.abstractionLevel,
+        payload: payloadStr,
+        metadata: metadataStr,
+      },
     });
+
+    if (edgeInputs.length > 0) {
+      await prisma.cognitionEdge.createMany({
+        data: edgeInputs.map((e) => ({
+          sourceId: e.sourceId,
+          targetId: e.targetId,
+          relation: e.relation,
+          weight: e.weight ?? 1.0,
+          metadata: e.metadata ? JSON.stringify(e.metadata) : null,
+        })),
+      });
+    }
+
+    const withTemplate = await prisma.cognitionNode.findUnique({
+      where: { id: created.id },
+      include: { astTemplate: true },
+    });
+
+    return toCognitionNode(withTemplate!);
+  }
+
+  /** Create or find existing node (upsert semantics).
+   * If the semanticHash already exists → return it instead of failing.
+   * Used by capture-diff / analyze-workspace to safely persist pattern/intent nodes. */
+  async findOrCreateNode(
+    nodeInput: CognitionNodeInput,
+  ): Promise<CognitionNodeData> {
+    try {
+      return await this.createNodeWithEdges(nodeInput);
+    } catch (e: any) {
+      if (e?.code === 'P2002') {
+        const prisma = getPrismaClient();
+        const existing = await prisma.cognitionNode.findUnique({
+          where: { semanticHash: nodeInput.semanticHash },
+          include: { astTemplate: true },
+        });
+        if (existing) return toCognitionNode(existing);
+      }
+      throw e;
+    }
   }
 
   async findNodesBySemanticHash(hash: string): Promise<CognitionNodeData[]> {
@@ -337,6 +356,31 @@ export class CognitionRepository implements ICognitionRepository {
       where: { relation },
     });
     return rows.map(toCognitionEdge);
+  }
+
+  /** Find nodes by a field in their payload JSON (e.g., filePath, language, projectId). */
+  async findNodesByPayloadField(field: string, value: string): Promise<CognitionNodeData[]> {
+    const prisma = getPrismaClient();
+    // SQLite LIKE with JSON field extraction pattern
+    const rows = await prisma.cognitionNode.findMany({
+      where: {
+        payload: { contains: `"${field}":"${value}"` },
+      },
+      include: { astTemplate: true },
+    });
+    return rows.map(toCognitionNode);
+  }
+
+  /** Find nodes by type (INTENT, PATTERN, CONSTRAINT, HEURISTIC). */
+  async findNodesByType(type: CognitionTypeStr, limit: number = 50): Promise<CognitionNodeData[]> {
+    const prisma = getPrismaClient();
+    const rows = await prisma.cognitionNode.findMany({
+      where: { type },
+      take: limit,
+      orderBy: { createdAt: "desc" },
+      include: { astTemplate: true },
+    });
+    return rows.map(toCognitionNode);
   }
 
   /** Delete a node and cascade-delete its edges and template. */

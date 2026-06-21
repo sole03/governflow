@@ -35,8 +35,12 @@ import type { TraversalOptions } from "../../core/cognition-types.js";
 interface CognitionQueryInput {
   contextHash?: string;
   semanticHash?: string;
+  filePath?: string;
+  language?: string;
+  nodeType?: "INTENT" | "PATTERN" | "CONSTRAINT" | "HEURISTIC";
   intentHint?: "REFACTOR" | "BUGFIX" | "BOILERPLATE";
   maxDepth?: number;
+  limit?: number;
 }
 
 interface CognitionValidateInput {
@@ -56,50 +60,109 @@ interface CognitionFeedbackInput {
 /**
  * cognition_query — Traverse the cognition graph starting from a context hash.
  * If intentHint is omitted, first runs intent recognition on the content hash string.
+ *
+ * Supports multiple query modes:
+ * 1. By semanticHash/contextHash (original mode)
+ * 2. By filePath (new: finds nodes whose payload.filePath matches)
+ * 3. By language (new: finds nodes whose payload.language matches)
+ * 4. By nodeType (new: finds nodes by type: INTENT/PATTERN/CONSTRAINT/HEURISTIC)
  */
 export async function handleCognitionQuery(
   input: CognitionQueryInput,
 ): Promise<{ content: { type: string; text: string }[] }> {
   try {
-    // Resolve contextHash: accept semanticHash as alias
-    const contextHash = input.contextHash || input.semanticHash;
-    if (!contextHash) {
-      return { content: [{ type: "text", text: JSON.stringify({ error: "Either contextHash or semanticHash is required" }) }] };
-    }
     const repo = new CognitionRepository();
-    const traverser = new GraphTraverser(repo);
+    const limit = input.limit ?? 50;
 
-    // If intentHint is provided, use it; otherwise compute from contextHash heuristic
-    let intentHint = input.intentHint;
-    if (!intentHint && contextHash.includes("lint")) {
-      intentHint = "BUGFIX";
+    // ── Multi-mode query ─────────────────────────────────────
+    let startNodes: { id: string; type: string; abstractionLevel: number; relevanceScore?: number }[] = [];
+    let queryMode = "unknown";
+
+    // Mode 1: By nodeType (direct DB query)
+    if (input.nodeType) {
+      queryMode = "nodeType";
+      const nodes = await repo.findNodesByType(input.nodeType as any, limit);
+      startNodes = nodes.map(n => ({
+        id: n.id,
+        type: n.type,
+        abstractionLevel: n.abstractionLevel,
+        relevanceScore: 1.0,
+      }));
+    }
+    // Mode 2: By filePath (payload field search)
+    else if (input.filePath) {
+      queryMode = "filePath";
+      const nodes = await repo.findNodesByPayloadField("filePath", input.filePath);
+      startNodes = nodes.slice(0, limit).map(n => ({
+        id: n.id,
+        type: n.type,
+        abstractionLevel: n.abstractionLevel,
+        relevanceScore: 1.0,
+      }));
+    }
+    // Mode 3: By language (payload field search)
+    else if (input.language) {
+      queryMode = "language";
+      const nodes = await repo.findNodesByPayloadField("language", input.language);
+      startNodes = nodes.slice(0, limit).map(n => ({
+        id: n.id,
+        type: n.type,
+        abstractionLevel: n.abstractionLevel,
+        relevanceScore: 1.0,
+      }));
+    }
+    // Mode 4: By semanticHash/contextHash (original traversal mode)
+    else if (input.contextHash || input.semanticHash) {
+      queryMode = "semanticHash";
+      const contextHash = input.contextHash || input.semanticHash || "";
+      const traverser = new GraphTraverser(repo);
+
+      let intentHint = input.intentHint;
+      if (!intentHint && contextHash.includes("lint")) {
+        intentHint = "BUGFIX";
+      }
+
+      const options: TraversalOptions = {
+        maxDepth: input.maxDepth ?? 3,
+        intentHint: intentHint as any,
+      };
+
+      const result = await traverser.traverse("*", "unknown.ts", contextHash, options, contextHash);
+      repo.recordFeedbackEvent(result.nodes[0]?.node?.id ?? "unknown").catch(() => {});
+
+      startNodes = result.nodes.map(n => ({
+        id: n.node.id,
+        type: n.node.type,
+        abstractionLevel: n.node.abstractionLevel,
+        relevanceScore: n.relevanceScore,
+      }));
+
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            nodes: startNodes,
+            traversalMs: result.durationMs,
+            truncated: result.truncated,
+            queryMode,
+          }),
+        }],
+      };
+    }
+    // No query criteria provided
+    else {
+      return { content: [{ type: "text", text: JSON.stringify({ error: "Provide at least one query criterion: nodeType, filePath, language, or semanticHash" }) }] };
     }
 
-    const options: TraversalOptions = {
-      maxDepth: input.maxDepth ?? 3,
-      intentHint: intentHint as any,
-    };
-
-    // Use empty language/path — the hash is pre-computed
-    const result = await traverser.traverse("*", "unknown.ts", contextHash, options, contextHash);
-
-    // Record feedback event asynchronously (fire-and-forget)
-    repo.recordFeedbackEvent(result.nodes[0]?.node?.id ?? "unknown").catch(() => {});
-
-    const summary = result.nodes.map((n) => ({
-      id: n.node.id,
-      type: n.node.type,
-      abstractionLevel: n.node.abstractionLevel,
-      relevanceScore: n.relevanceScore,
-    }));
-
+    // For non-traversal modes, return directly
     return {
       content: [{
         type: "text",
         text: JSON.stringify({
-          nodes: summary,
-          traversalMs: result.durationMs,
-          truncated: result.truncated,
+          nodes: startNodes,
+          traversalMs: 0,
+          truncated: startNodes.length >= limit,
+          queryMode,
         }),
       }],
     };

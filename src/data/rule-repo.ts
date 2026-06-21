@@ -183,6 +183,8 @@ export class RuleRepo implements IRuleRepository {
     const conditions: Prisma.RuleWhereInput[] = [
       { status: "active" },
       { OR: [{ language: "*" }, { language }] },
+      { pattern: { not: "" } },
+      { suggestion: { not: "" } },
     ];
     if (fileExtension) {
       const ext = fileExtension.replace(".", "");

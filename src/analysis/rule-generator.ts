@@ -49,8 +49,11 @@ export function evaluateRuleCandidate(
     return { generate: false, reason: "only insert/delete ops with insufficient pattern", confidence: "low" };
   }
   const dominantUpdate = updateOps.length > 0 ? updateOps[0] : ops[0];
-  const pattern = dominantUpdate.originalText ?? "";
-  const suggestion = dominantUpdate.modifiedText ?? "";
+  const pattern = (dominantUpdate.originalText ?? "").trim();
+  const suggestion = (dominantUpdate.modifiedText ?? "").trim();
+  if (pattern.length === 0 || suggestion.length === 0) {
+    return { generate: false, reason: "no non-empty pattern/suggestion available in ops", confidence: "low" };
+  }
   let confidence: RuleConfidence = "high";
   if (ops.length > 3) confidence = "low";
   else if (ops.some(o => o.type === "INSERT" || o.type === "DELETE")) confidence = "medium";

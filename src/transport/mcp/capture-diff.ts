@@ -48,41 +48,31 @@ async function upsertCognitionClosure(
   diffOpCount: number,
   ruleGenerated: boolean,
   diffStatus: string,
-) {
+): Promise<{ success: boolean; patternNodeId?: string; intentNodeId?: string; edgeCreated?: boolean; error?: string }> {
   try {
     const repo = new CognitionRepository();
 
-    // ── PATTERN node (TOCTOU-hardened via DB unique constraint) ──
-    let patternNode: any;
-    try {
-      const existing = await repo.findNodesBySemanticHash(modifiedHash);
-      const patternPayload = {
-        filePath,
-        language,
-        projectId: projectId ?? null,
-        diffOpCount,
-        ruleGenerated,
-        diffStatus,
-        lastSeen: new Date().toISOString(),
-      };
-      const patternMeta = {
-        source: "capture_diff",
-        diffRetentionDays: RULE_GENERATION_THRESHOLDS.repeatWindowDays,
-        occurrences: (existing?.[0]?.metadata as any)?.occurrences
-          ? (existing![0].metadata as any).occurrences + 1 : 1,
-      };
-      patternNode = await repo.createNodeWithEdges({
-        type: "PATTERN",
-        semanticHash: modifiedHash,
-        abstractionLevel: 0,
-        payload: patternPayload,
-        metadata: patternMeta,
-      });
-    } catch {
-      // Duplicate key (concurrent insert) — re-fetch and use existing node
-      const existing2 = await repo.findNodesBySemanticHash(modifiedHash);
-      patternNode = existing2?.[0];
-    }
+    // ── PATTERN node ──
+    const patternPayload = {
+      filePath,
+      language,
+      projectId: projectId ?? null,
+      diffOpCount,
+      ruleGenerated,
+      diffStatus,
+      lastSeen: new Date().toISOString(),
+    };
+    const patternMeta = {
+      source: "capture_diff",
+      diffRetentionDays: RULE_GENERATION_THRESHOLDS.repeatWindowDays,
+    };
+    const patternNode = await repo.findOrCreateNode({
+      type: "PATTERN",
+      semanticHash: modifiedHash,
+      abstractionLevel: 0,
+      payload: patternPayload,
+      metadata: patternMeta,
+    });
 
     // ── INTENT node ──
     // Build a minimal unified diff for intent recognition
@@ -110,24 +100,38 @@ async function upsertCognitionClosure(
       confidence: intentResult.confidence,
       reasoning: intentResult.reasoning,
     };
-    const intentNode = await repo.createNodeWithEdges({
+    const intentNode = await repo.findOrCreateNode({
       type: "INTENT",
       semanticHash: intentHash,
-      abstractionLevel: 1, // FUNCTION level — bridges code to goal
+      abstractionLevel: 1,
       payload: intentPayload,
       metadata: intentMeta,
     });
 
     // ── INTENT ──CAUSES──→ PATTERN edge ──
-    await repo.createEdge({
-      sourceId: intentNode.id,
-      targetId: patternNode.id,
-      relation: "CAUSES",
-      weight: intentResult.confidence,
-      metadata: { source: "capture_diff", intent: intentResult.intent },
-    });
-  } catch {
-    // Best-effort: cognition closure upsert should never block the diff pipeline
+    let edgeCreated = false;
+    try {
+      await repo.createEdge({
+        sourceId: intentNode.id,
+        targetId: patternNode.id,
+        relation: "CAUSES",
+        weight: intentResult.confidence,
+        metadata: { source: "capture_diff", intent: intentResult.intent },
+      });
+      edgeCreated = true;
+    } catch (e: any) {
+      // Edge unique constraint failure (sourceId, targetId, relation) = already exists
+      if (e?.code !== 'P2002') throw e;
+    }
+
+    return {
+      success: true,
+      patternNodeId: patternNode.id,
+      intentNodeId: intentNode.id,
+      edgeCreated,
+    };
+  } catch (e: any) {
+    return { success: false, error: e?.message ?? String(e) };
   }
 }
 
@@ -159,18 +163,18 @@ export async function handleCaptureDiff(input: CaptureDiffInput, ruleRepo: IRule
       await metricRepo.track("rule_auto_generated", { language: input.language, source: "capture_diff" });
       ruleWasGenerated = true;
     }
-    // Fallback: even when no high-confidence rule is generated, capture a low-confidence
-    // candidate into the rule repo so the cognition graph can learn from this diff.
+    // Fallback: low-confidence candidate so the cognition graph can learn from this diff.
+    // Reject empty patterns/suggestions — they trivially match every file and poison matchCount.
     if (!result.generatedRule && diffResult.operations.length > 0) {
-      const fallbackOp = diffResult.operations[0];
-      const fallbackSpec = {
-        type: (fallbackOp.type === "MOVE" ? "restructure" : "replace") as any,
-        pattern: fallbackOp.originalText ?? "",
-        suggestion: fallbackOp.modifiedText ?? "",
-        language: input.language,
-        confidence: "low" as any,
-      };
-      if (fallbackSpec.pattern && fallbackSpec.suggestion) {
+      const fallbackOp = diffResult.operations.find(op => (op.originalText?.trim().length ?? 0) > 0 && (op.modifiedText?.trim().length ?? 0) > 0) ?? null;
+      if (fallbackOp) {
+        const fallbackSpec = {
+          type: (fallbackOp.type === "MOVE" ? "restructure" : "replace") as any,
+          pattern: fallbackOp.originalText!.trim(),
+          suggestion: fallbackOp.modifiedText!.trim(),
+          language: input.language,
+          confidence: "low" as any,
+        };
         try { await ruleRepo.create({ ...fallbackSpec, projectId: input.projectId }); }
         catch { /* best-effort; rule may conflict */ }
       }
@@ -180,12 +184,15 @@ export async function handleCaptureDiff(input: CaptureDiffInput, ruleRepo: IRule
     confirmCard = card.card ?? null;
   }
 
-  // Persist full cognition closure for every diff (fire-and-forget, best-effort)
-  upsertCognitionClosure(input.filePath, input.language, input.projectId, modifiedHash, originalHash, input.modifiedContent, diffResult.operations.length, ruleWasGenerated, diffResult.status).catch(() => {});
+  // Persist full cognition closure for every diff (awaited — nodes must be written before response)
+  const cognition = await upsertCognitionClosure(input.filePath, input.language, input.projectId, modifiedHash, originalHash, input.modifiedContent, diffResult.operations.length, ruleWasGenerated, diffResult.status);
+  if (!cognition.success && cognition.error) {
+    warnings.push("cognition-graph: " + cognition.error);
+  }
 
   if (mode === "silent") {
-    return { content: [{ type: "text", text: JSON.stringify({ status: diffResult.status, opCount: diffResult.operations.length, notification: ruleWasGenerated ? "rule generated" : "diff captured", warnings: warnings.length > 0 ? warnings : undefined }) }] };
+    return { content: [{ type: "text", text: JSON.stringify({ status: diffResult.status, opCount: diffResult.operations.length, notification: ruleWasGenerated ? "rule generated" : "diff captured", cognition: cognition.success ? { patternNodeId: cognition.patternNodeId, intentNodeId: cognition.intentNodeId, edgeCreated: cognition.edgeCreated } : undefined, warnings: warnings.length > 0 ? warnings : undefined }) }] };
   } else {
-    return { content: [{ type: "text", text: JSON.stringify({ status: diffResult.status, opCount: diffResult.operations.length, confirmCard, warnings: warnings.length > 0 ? warnings : undefined }) }] };
+    return { content: [{ type: "text", text: JSON.stringify({ status: diffResult.status, opCount: diffResult.operations.length, confirmCard, cognition: cognition.success ? { patternNodeId: cognition.patternNodeId, intentNodeId: cognition.intentNodeId, edgeCreated: cognition.edgeCreated } : undefined, warnings: warnings.length > 0 ? warnings : undefined }) }] };
   }
 }

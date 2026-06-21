@@ -52,5 +52,20 @@ describe("Rule Matcher", () => {
     const result = matchRules([makeRule({ language: "typescript", tags: ["api"] })], { language: "typescript", filePath: "api/route.ts", fileExtension: ".ts", ruleTags: ["api"] }, { topK: 5 });
     expect(result.rules[0].matchReasons.length).toBeGreaterThan(0);
   });
+  it("rejects rules with empty pattern or suggestion (regression for Governflow empty-pattern pollution)", () => {
+    const ctx: MatchContext = { language: "typescript", filePath: "app.ts", fileExtension: ".ts", fileContent: "some content" };
+    expect(computeScore(makeRule({ pattern: "", suggestion: "bar" }), ctx)).toBe(0);
+    expect(computeScore(makeRule({ pattern: "   ", suggestion: "bar" }), ctx)).toBe(0);
+    expect(computeScore(makeRule({ pattern: "foo", suggestion: "" }), ctx)).toBe(0);
+  });
+  it("excludes empty-pattern rules from matchRules output", () => {
+    const ctx: MatchContext = { language: "typescript", filePath: "app.ts", fileExtension: ".ts" };
+    const result = matchRules([
+      makeRule({ id: "good", pattern: "foo", suggestion: "bar" }),
+      makeRule({ id: "bad", pattern: "", suggestion: "bar" }),
+    ], ctx, { topK: 10 });
+    expect(result.rules.some(r => r.rule.id === "bad")).toBe(false);
+    expect(result.rules.some(r => r.rule.id === "good")).toBe(true);
+  });
 });
 

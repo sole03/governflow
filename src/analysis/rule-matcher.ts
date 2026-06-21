@@ -25,6 +25,10 @@ import { truncateRules } from "./token-controller.js";
 
 export function computeScore(rule: Rule, context: MatchContext): number {
   if (rule.language !== "*" && rule.language !== context.language) return 0;
+  // Hard rejection: rules without a usable pattern OR usable suggestion cannot meaningfully match.
+  const trimmedPattern = rule.pattern?.trim() ?? "";
+  const trimmedSuggestion = rule.suggestion?.trim() ?? "";
+  if (trimmedPattern.length === 0 || trimmedSuggestion.length === 0) return 0;
   const now = context.currentTime ?? new Date();
   const { typeWeight, timeWeight, matchWeight, timeDecayLambda } = DEFAULT_WEIGHTS;
   const typeValue = rule.type === "replace" ? 1.0 : rule.type === "restructure" ? 0.8 : 0.6;
@@ -42,13 +46,14 @@ export function computeScore(rule: Rule, context: MatchContext): number {
       if (rule.tags.some(t => t.toLowerCase() === tag.toLowerCase())) matchValue += 1;
     }
   }
-  // Content-based pattern matching: if rule pattern appears in file content, strong signal
-  if (content && rule.pattern) {
-    const patternLower = rule.pattern.toLowerCase();
-    if (content.includes(patternLower)) {
+  // Content-based pattern matching: strong signal for concrete patterns.
+  if (content) {
+    if (content.includes(trimmedPattern.toLowerCase())) {
       matchValue += 2;
     }
   }
+  // A rule with zero match signal (no tag/pattern hit) still gets a tiny baseline from
+  // type+time so fresh rules aren't invisible, but only when pattern/suggestion are non-empty.
   const priorityBonus = SCOPE_PRIORITIES[rule.scope ?? "project"] ?? 0.5;
   const score = (typeWeight * typeValue) + (timeWeight * timeValue) + (matchWeight * (matchValue / Math.max(matchValue, 1)));
   return score * priorityBonus;
@@ -64,8 +69,8 @@ export function matchRules(rules: Rule[], context: MatchContext, options: MatchO
     const matchReasons: string[] = [];
     if (rule.language === context.language || rule.language === "*") matchReasons.push("language_match");
     if (rule.tags?.some(t => context.filePath.toLowerCase().includes(t.toLowerCase()))) matchReasons.push("path_match");
-    // New match reason for content-based pattern matching
-    if (context.fileContent && rule.pattern && context.fileContent.toLowerCase().includes(rule.pattern.toLowerCase())) {
+    const trimmedPattern = rule.pattern?.trim() ?? "";
+    if (context.fileContent && trimmedPattern.length > 0 && context.fileContent.toLowerCase().includes(trimmedPattern.toLowerCase())) {
       matchReasons.push("content_match");
     }
     return { rule, score, matchReasons };
